@@ -1,0 +1,25 @@
+{
+  "name": "1kyc Astro Dev",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+  "remoteUser": "node",
+  "forwardPorts": [4321],
+  "containerEnv": {
+    "npm_config_cache": "/home/node/.npm"
+  },
+  "runArgs": [
+    "--cap-drop=ALL",
+    "--security-opt=no-new-privileges"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "astro-build.astro-vscode",
+        "esbenp.prettier-vscode"
+      ]
+    }
+  }
+}
