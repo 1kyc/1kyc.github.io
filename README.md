@@ -21,7 +21,7 @@ npm run dev        # start the dev server at http://localhost:4321
 
 ## Deployment
 
-Deployment is automatic. Pushing to `master` triggers the
+Deployment is automatic. Pushing to `main` triggers the
 [`Deploy to GitHub Pages`](.github/workflows/deploy.yml) workflow, which builds
 the site and publishes it to GitHub Pages.
 
