@@ -1,15 +1,24 @@
 {
-  "name": "1kyc Astro Dev",
+  "name": "dev - 1kyc.github.io",
   "build": {
     "dockerfile": "Dockerfile"
   },
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
   "workspaceFolder": "/workspace",
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+  "mounts": [
+    "source=1kyc-gh-config,target=/home/node/.config/gh,type=volume",
+    "source=1kyc-claude-config,target=/home/node/.claude,type=volume"
+  ],
   "remoteUser": "node",
   "forwardPorts": [4321],
   "containerEnv": {
-    "npm_config_cache": "/home/node/.npm"
+    "npm_config_cache": "/home/node/.npm",
+    "CLAUDE_CONFIG_DIR": "/home/node/.claude"
   },
+  "postCreateCommand": "git config --global init.defaultBranch main && if gh auth status >/dev/null 2>&1; then login=$(gh api user -q .login); uid=$(gh api user -q .id); git config --global user.name \"$login\"; git config --global user.email \"${uid}+${login}@users.noreply.github.com\"; gh auth setup-git; fi",
   "runArgs": [
     "--cap-drop=ALL",
     "--security-opt=no-new-privileges"
