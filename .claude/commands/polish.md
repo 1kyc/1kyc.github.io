@@ -20,8 +20,13 @@ Iteration contract — do these in order, then stop:
        .claude/bin/notify.sh "🛑 polish loop stopped: token budget reached (<spent>/<budget>)"
    and END THE LOOP — do not schedule another iteration.
 
-2. PICK A TASK. Read $STATE/backlog.md and take the first unchecked `- [ ]` item.
-   If there are none, run
+2. PICK A TASK + READ ITS FULL BRIEF. Read $STATE/backlog.md and take the first
+   unchecked `- [ ]` item. Treat EVERYTHING attached to that item — indented
+   prose, sub-bullets, and image references — as the brief, not just the
+   one-line title. For each image reference (a `ref: <path>` line, or any
+   `refs/…` path), resolve it relative to $STATE and use the Read tool to
+   actually VIEW the image before building, so you design to the reference.
+   If there are no unchecked items, run
        .claude/bin/notify.sh "✅ polish loop stopped: backlog empty"
    and END THE LOOP.
 
