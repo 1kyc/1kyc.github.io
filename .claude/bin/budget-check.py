@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Token-budget governor for the unattended polish loop.
+"""Token-budget governor for the unattended iterate loop.
 
 Consumption is summed from this machine's session transcripts (the same local
 data /usage approximates) -- specifically output tokens, the controllable cost.
