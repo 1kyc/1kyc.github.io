@@ -1,5 +1,6 @@
 ---
-
+import MazeApp from '../components/MazeApp';
+import '../styles/maze.css';
 ---
 
 <html lang="en">
@@ -9,9 +10,16 @@
 		<link rel="icon" href="/favicon.ico" />
 		<meta name="viewport" content="width=device-width" />
 		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
+		<title>the maze</title>
 	</head>
 	<body>
-		<h1>Astro</h1>
+		<MazeApp client:only="preact" />
+		<noscript>
+			<p
+				style="min-height:100dvh;margin:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:2rem;color:var(--text);background:var(--bg);font-family:var(--font-mono);letter-spacing:0.04em;"
+			>
+				the maze needs javascript to find its way. enable it to enter.
+			</p>
+		</noscript>
 	</body>
 </html>

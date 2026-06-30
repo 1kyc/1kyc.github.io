@@ -1,0 +1,613 @@
+/* =============================================================================
+   maze.css — visual system for the "/" landing maze
+   -----------------------------------------------------------------------------
+   A quiet, mysterious, hacker-ish puzzle box. Dark, monospace, cipher-panel.
+   Plain CSS driven by tokens. No web fonts, no raster assets.
+
+   Hand-off map (class names a developer applies to the Preact component):
+     .maze            wrapper / centering shell
+     .maze__title     the cryptic header line
+     .maze__hint      faint sub-line
+     .grid            the letter matrix (CSS grid)
+     .cell            a single letter cell
+       .cell--hover     pointer is over it
+       .cell--active    part of the current drag selection
+       .cell--found     belongs to a solved word
+     .word-found      transient toast/label when a word resolves
+     .backdoors       the plain accessible fallback list
+     .selector        the hidden maze switcher (subtle affordance)
+       .selector--open  expanded state
+       .selector__toggle  the "::" bait glyph (unchanged)
+     .menu            the dropdown panel revealed when the toggle is active
+       .menu__list    the NATIVE scroll region (role="listbox" lives on .menu)
+       .menu__item    one maze label (role="option")
+         .menu__item--active       the maze currently shown (quiet ● marker)
+         .menu__item--highlighted  keyboard/hover focus (accent row)
+         .menu__item--exit         the "backdoors" escape-hatch row
+
+   How the COMPONENT drives selection:
+     A plain tap/click/arrow list — no physics, no scroll-snap, no centering.
+     The component adds .menu__item--highlighted to the keyboard/hover target and
+     .menu__item--active to the maze currently shown, and moves highlight on
+     ArrowUp/ArrowDown. Selection commits on click/Enter. No custom properties,
+     no --offset, no transforms beyond the panel reveal.
+   ============================================================================= */
+
+/* -----------------------------------------------------------------------------
+   0. RESET
+   The landing page renders outside Layout.astro, so zero the default body
+   margin and switch to border-box — otherwise `min-height: 100vh` + padding
+   overflows the viewport and produces a stray scrollbar.
+   --------------------------------------------------------------------------- */
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+html,
+body {
+	margin: 0;
+	background-color: var(--bg);
+}
+
+/* -----------------------------------------------------------------------------
+   1. DESIGN TOKENS
+   Tight dark palette (~6 colors). Accent is a cool cipher-green; a second,
+   dimmer cyan accent is used only for the "found" state so success reads
+   differently from selection.
+   --------------------------------------------------------------------------- */
+:root {
+	/* surfaces */
+	--bg:        #0a0c10;   /* page background, near-black with a blue cast    */
+	--surface:   #11151c;   /* the cipher panel behind the grid                */
+	--border:    #1e2530;   /* hairline borders, grid lines                    */
+
+	/* text */
+	--text:      #c7d0dc;   /* primary letters/labels (cool light gray)        */
+	--muted:     #5a6473;   /* hints, idle affordances, de-emphasized UI       */
+
+	/* accents */
+	--accent:    #4ade80;   /* selection / active drag path (cipher green)     */
+	--accent-2:  #38bdf8;   /* resolved word (cyan) — distinct from selection  */
+
+	/* derived, translucent variants (kept here so usage stays declarative) */
+	--accent-soft:   color-mix(in srgb, var(--accent) 18%, transparent);
+	--accent-2-soft: color-mix(in srgb, var(--accent-2) 16%, transparent);
+	--glow:          color-mix(in srgb, var(--accent) 40%, transparent);
+
+	/* typography */
+	--font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code",
+		"Fira Code", Menlo, Consolas, "Liberation Mono", monospace;
+
+	/* type scale (modest — four steps) */
+	--fs-xs:   0.75rem;   /* 12px — hints, selector, meta              */
+	--fs-sm:   0.875rem;  /* 14px — body / backdoor links              */
+	--fs-base: 1.125rem;  /* 18px — grid letters                       */
+	--fs-lg:   1.5rem;    /* 24px — title                              */
+
+	--lh-tight: 1.2;
+	--lh-body:  1.6;
+
+	/* spacing rhythm (4px base) */
+	--space-1: 0.25rem;
+	--space-2: 0.5rem;
+	--space-3: 1rem;
+	--space-4: 1.5rem;
+	--space-5: 2.5rem;
+
+	/* geometry / motion */
+	--radius:   6px;
+	--cell-size: clamp(2rem, 7.5vw, 2.75rem);
+	--ease:     cubic-bezier(0.2, 0.7, 0.2, 1);
+	--dur:      140ms;
+}
+
+/* -----------------------------------------------------------------------------
+   2. PAGE SHELL + AMBIENT BACKGROUND
+   CSS-only ambience, three stacked layers from a flat-black base:
+     • .maze background-image — a soft top-center accent glow (depth/warmth).
+     • .maze::before          — a radial vignette darkening the edges.
+     • .maze::after           — MOIRÉ LINE GRATINGS: two near-parallel hairline
+       repeating-linear-gradient sets (~7° / ~11.5°) that interfere into slow
+       moiré bands. A radial mask (inverse of the vignette) keeps them quiet
+       behind the centered maze + menu and densest toward the edges/corners,
+       so the surface reads "calm center, intricate edges". One set slowly
+       drifts to make the moiré shimmer.
+   The moiré sits ABOVE the vignette (tree order: ::after paints after ::before)
+   so the hairlines stay visible in the darkened corners; the centered content
+   sits above everything via .maze > * { z-index: 1 }.
+   --------------------------------------------------------------------------- */
+.maze {
+	min-height: 100vh;
+	min-height: 100dvh;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var(--space-4);
+	padding: var(--space-5) var(--space-3);
+
+	color: var(--text);
+	font-family: var(--font-mono);
+	background-color: var(--bg);
+	background-image:
+		/* soft top-center glow */
+		radial-gradient(
+			120% 80% at 50% -10%,
+			color-mix(in srgb, var(--accent) 7%, transparent),
+			transparent 60%
+		);
+	background-attachment: fixed;
+}
+
+/* vignette — darken the edges so the centre reads as a quiet pool of light */
+.maze::before {
+	content: "";
+	position: fixed;
+	inset: 0;
+	pointer-events: none;
+	background: radial-gradient(
+		100% 100% at 50% 50%,
+		transparent 30%,
+		var(--bg) 95%
+	);
+	z-index: 0;
+}
+
+/* moiré line gratings — calm centre, intricate edges (see section comment).
+   Two equal-period hairline sets at slightly different angles interfere into
+   moiré bands; the radial mask fades them out behind the centred maze + menu
+   and brings them up toward the edges/corners. Very low alpha — ambient, not
+   loud. Period 12px gives a fine moiré beat; on a large viewport the mask
+   radii keep a generous clean centre (~ ±360px H / ±300px V around middle). */
+.maze::after {
+	content: "";
+	position: fixed;
+	inset: 0;
+	pointer-events: none;
+	z-index: 0;
+	background-image:
+		/* set A — faint grey hairlines, ~7°.
+		   Feathered (anti-aliased) edges instead of a hard 1px stop: each line
+		   ramps transparent → colour → transparent across a ~2.5px footprint
+		   (≈1.5px effective width, ~1px soft edge per side) inside the unchanged
+		   12px period. Sub-pixel ramps give every pixel along a near-horizontal
+		   line partial coverage, so the rasterised staircase blends into a
+		   continuous line at DPR=1 instead of dashing. Alpha nudged 9%→11% to
+		   hold perceived weight after softening. */
+		repeating-linear-gradient(
+			7deg,
+			transparent 0,
+			color-mix(in srgb, var(--text) 11%, transparent) 1px,
+			color-mix(in srgb, var(--text) 11%, transparent) 1.5px,
+			transparent 2.5px,
+			transparent 12px
+		),
+		/* set B — faint cyan hairlines, ~11.5° (this one drifts); same feathering */
+		repeating-linear-gradient(
+			11.5deg,
+			transparent 0,
+			color-mix(in srgb, var(--accent-2) 11%, transparent) 1px,
+			color-mix(in srgb, var(--accent-2) 11%, transparent) 1.5px,
+			transparent 2.5px,
+			transparent 12px
+		);
+	-webkit-mask: radial-gradient(
+		ellipse 78% 82% at 50% 50%, transparent 34%, #000 82%
+	);
+	mask: radial-gradient(
+		ellipse 78% 82% at 50% 50%, transparent 34%, #000 82%
+	);
+	animation: moire-drift 48s ease-in-out infinite alternate;
+}
+
+/* slow shimmer: drift only set B; set A stays pinned so the moiré bands crawl */
+@keyframes moire-drift {
+	from { background-position: 0 0, 0 0; }
+	to   { background-position: 0 0, 9px 4px; }
+}
+
+.maze > * { position: relative; z-index: 1; }
+
+/* -----------------------------------------------------------------------------
+   3. HEADER
+   Cryptic, lowercase, spaced — feels like a prompt, not a marketing headline.
+   --------------------------------------------------------------------------- */
+.maze__title {
+	margin: 0;
+	font-size: var(--fs-lg);
+	font-weight: 500;
+	letter-spacing: 0.12em;
+	line-height: var(--lh-tight);
+	color: var(--text);
+	text-align: center;
+}
+
+/* a blinking caret to suggest "input expected" */
+.maze__title::after {
+	content: "_";
+	margin-left: 0.15em;
+	color: var(--accent);
+	animation: caret 1.1s steps(2, jump-none) infinite;
+}
+
+.maze__hint {
+	margin: 0;
+	max-width: 36ch;
+	font-size: var(--fs-xs);
+	letter-spacing: 0.04em;
+	line-height: var(--lh-body);
+	color: var(--muted);
+	text-align: center;
+}
+
+@keyframes caret {
+	0%, 49%   { opacity: 1; }
+	50%, 100% { opacity: 0; }
+}
+
+/* -----------------------------------------------------------------------------
+   4. WORD-SEARCH GRID
+   The tactile cipher panel. Grid column count is set by the component via the
+   --cols custom property (e.g. style="--cols:10").
+   --------------------------------------------------------------------------- */
+.grid {
+	display: grid;
+	grid-template-columns: repeat(var(--cols, 10), var(--cell-size));
+	gap: 2px;
+	padding: var(--space-3);
+
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	box-shadow:
+		inset 0 0 0 1px color-mix(in srgb, var(--accent) 4%, transparent),
+		0 20px 60px -30px #000;
+
+	/* don't let drag-select highlight text like a paragraph */
+	user-select: none;
+	-webkit-user-select: none;
+	touch-action: none;   /* allow custom pointer drag on touch */
+}
+
+.cell {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--cell-size);
+	height: var(--cell-size);
+
+	font-size: var(--fs-base);
+	font-weight: 500;
+	text-transform: uppercase;
+	color: var(--muted);          /* letters idle dim — the puzzle is "off" */
+	background: transparent;
+	border-radius: 4px;
+	cursor: pointer;
+
+	transition:
+		color var(--dur) var(--ease),
+		background-color var(--dur) var(--ease),
+		box-shadow var(--dur) var(--ease),
+		transform var(--dur) var(--ease);
+}
+
+/* hover: letter wakes up */
+.cell--hover {
+	color: var(--text);
+	background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+/* active: part of the current drag path — green, lifted */
+.cell--active {
+	color: var(--bg);
+	background: var(--accent);
+	box-shadow: 0 0 12px -2px var(--glow);
+	transform: scale(1.04);
+}
+
+/* found: locked-in word, switches to the cyan accent and stays subtly lit */
+.cell--found {
+	color: var(--accent-2);
+	background: var(--accent-2-soft);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-2) 35%, transparent);
+	transform: none;
+	cursor: default;
+}
+
+/* -----------------------------------------------------------------------------
+   5. WORD-FOUND FEEDBACK
+   A small monospace toast confirming the resolved word before navigation.
+   --------------------------------------------------------------------------- */
+.word-found {
+	font-size: var(--fs-sm);
+	letter-spacing: 0.1em;
+	color: var(--accent-2);
+}
+.word-found::before { content: "> "; color: var(--muted); }
+
+/* -----------------------------------------------------------------------------
+   6. HIDDEN MAZE SELECTOR
+   Affordance idea: a single low-contrast glyph (e.g. "::" or "⠿") pinned to a
+   page corner, rendered in --muted at low opacity so it reads as decoration.
+   On hover/focus it brightens and the switcher options slide out. Keyboard-
+   reachable (focus-visible) so it isn't mouse-only. Easy to miss, findable by
+   the curious.
+   --------------------------------------------------------------------------- */
+.selector {
+	position: fixed;
+	bottom: var(--space-3);
+	right: var(--space-3);
+	z-index: 2;
+
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	font-size: var(--fs-xs);
+	color: var(--muted);
+
+	/* nothing in the affordance should read as selectable body text */
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+/* the bait glyph — barely there until touched */
+.selector__toggle {
+	appearance: none;
+	background: none;
+	border: none;
+	padding: var(--space-1);
+	font-family: var(--font-mono);
+	font-size: var(--fs-xs);
+	letter-spacing: 0.3em;
+	color: var(--muted);
+	opacity: 0.25;                 /* decoration-low: present but ignorable */
+	cursor: default;               /* no obvious "I'm a button" pointer */
+	user-select: none;             /* the "::" bait must not be selectable text */
+	-webkit-user-select: none;
+	transition: opacity var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.selector__toggle:hover,
+.selector__toggle:focus-visible {
+	opacity: 1;
+	color: var(--accent);
+	outline: none;
+}
+
+/* -----------------------------------------------------------------------------
+   6b. MENU (the maze dropdown)
+   A plain, robust dropdown styled as a terminal command list. No physics, no
+   scroll-snap, no centering, no drag — selection is a tap/click/arrow highlight.
+
+   It reuses the OVERLAY approach that kept the "::" toggle from jumping on open:
+   the panel is position:absolute, anchored ABOVE the toggle (bottom-right), and
+   revealed via opacity/visibility/transform — never by collapsing height — so
+   the toggle never moves and the geometry is stable the instant it appears.
+
+   Selection cues are class-driven (color/marker), not opacity, so they survive
+   reduced motion:
+     idle row          → --muted "> label"
+     --highlighted     → --accent text on a faint --accent-soft row (kbd/hover)
+     --active          → trailing ● in --accent (the maze currently shown)
+     --exit            → stays --text, never green; divider + trailing ↩
+   --------------------------------------------------------------------------- */
+.menu {
+	/* one row's min-height — the list window shows ~6.5 of these before scroll */
+	--row-h: 2.5rem;
+
+	/* Overlay, not in flow: pinned ABOVE the "::" toggle, bottom-right aligned.
+	   The toggle is the selector's only flow child, so the selector's box == the
+	   toggle's box; anchoring to bottom:100% floats the menu right on top of the
+	   toggle and opening/closing never shifts the toggle. */
+	position: absolute;
+	bottom: calc(100% + var(--space-2));   /* sit just above the toggle, with a gap */
+	right: 0;                              /* bottom-right aligned to the toggle    */
+
+	/* Holds the longest maze labels with side breathing room; min() clamps it so
+	   it never overruns the right edge on a 375px viewport. */
+	width: min(13rem, calc(100vw - 2rem));
+
+	/* a quiet cipher panel, matching the grid's chrome */
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	box-shadow: 0 16px 40px -28px #000;
+	overflow: hidden;                     /* clip the list to the rounded panel */
+
+	/* hidden until opened — revealed via opacity + visibility (+ a small
+	   transform), NEVER by collapsing height, so layout/geometry stays constant */
+	opacity: 0;
+	visibility: hidden;
+	pointer-events: none;
+	transform-origin: bottom right;
+	transform: translateY(6px) scale(0.98);
+	transition:
+		opacity var(--dur) var(--ease),
+		transform var(--dur) var(--ease),
+		visibility var(--dur) var(--ease);
+}
+
+.selector--open .menu,
+.selector:focus-within .menu {
+	opacity: 1;
+	visibility: visible;
+	transform: none;
+	pointer-events: auto;
+}
+
+/* the scroll region — native vertical scroll, ~6.5 rows then overflow.
+   The 0.5-row hint at the bottom plus the mask-fade signals "more below". */
+.menu__list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+
+	max-height: calc(var(--row-h) * 6.5);
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;   /* momentum scroll on iOS */
+
+	/* no text-selection while interacting; allow vertical touch scroll */
+	user-select: none;
+	-webkit-user-select: none;
+	touch-action: pan-y;
+
+	/* hide the scrollbar (Firefox + WebKit/Blink) … */
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+	/* … and fade the top/bottom edges so it's clear more rows exist when long */
+	-webkit-mask-image: linear-gradient(
+		to bottom, transparent 0, #000 8%, #000 92%, transparent 100%
+	);
+	mask-image: linear-gradient(
+		to bottom, transparent 0, #000 8%, #000 92%, transparent 100%
+	);
+}
+.menu__list::-webkit-scrollbar { display: none; }
+
+/* one terminal-style row — "> label", a comfortable mobile tap target */
+.menu__item {
+	position: relative;          /* anchor markers / dividers without box growth */
+	display: flex;
+	align-items: center;
+	min-height: var(--row-h);    /* >= 2.5rem tap target */
+	padding: var(--space-2) var(--space-3);
+
+	font-family: var(--font-mono);
+	font-size: var(--fs-xs);
+	letter-spacing: 0.12em;
+	white-space: nowrap;
+	color: var(--muted);         /* idle rows are dim */
+
+	background: none;
+	border: none;
+	cursor: pointer;
+	text-decoration: none;
+
+	transition:
+		color var(--dur) var(--ease),
+		background-color var(--dur) var(--ease);
+}
+/* the terminal prompt prefix */
+.menu__item::before {
+	content: ">";
+	color: var(--muted);
+	margin-right: 0.6em;
+}
+
+/* HIGHLIGHTED — keyboard focus / hover: the obvious current target. Accent text
+   on a faint accent row. Hover gets the same treatment. */
+.menu__item--highlighted,
+.menu__item:hover {
+	color: var(--accent);
+	background: var(--accent-soft);
+}
+.menu__item--highlighted::before,
+.menu__item:hover::before {
+	color: var(--accent);
+}
+.menu__item:focus-visible { outline: none; }
+
+/* ACTIVE — the maze currently shown. A quiet trailing ● marker (distinct from
+   the highlight's row treatment). Pinned absolutely so it never grows the row. */
+.menu__item--active::after {
+	content: "●";
+	position: absolute;
+	top: 50%;
+	right: var(--space-3);
+	transform: translateY(-50%);
+	font-size: 0.6em;
+	color: var(--accent);
+	pointer-events: none;
+}
+/* a row can be both active and highlighted — the ● + accent row read together */
+
+/* EXIT — "backdoors": an escape hatch, NOT a maze. A divider above it, a
+   trailing ↩, plainer tracking, and it stays --text even when highlighted or
+   active so it never masquerades as a chosen maze. Same row height as the rest. */
+.menu__item--exit {
+	color: var(--text);
+	letter-spacing: 0.06em;
+}
+/* divider hairline fencing the exit off — absolutely positioned at the row top
+   so it adds ZERO box height; the row stays exactly --row-h like the others */
+.menu__item--exit::before {
+	content: "";
+	position: absolute;
+	top: 0;
+	left: var(--space-3);
+	right: var(--space-3);
+	border-top: 1px dashed var(--border);
+	pointer-events: none;
+	/* drop the "> " prompt for the escape hatch */
+	margin-right: 0;
+}
+/* trailing exit marker, vertically centered + trailing so it can't grow the row */
+.menu__item--exit::after {
+	content: "↩";
+	position: absolute;
+	top: 50%;
+	right: var(--space-3);
+	transform: translateY(-50%);
+	color: var(--muted);
+	opacity: 0.8;
+	pointer-events: none;
+}
+/* keep the exit plain (never accent green) under highlight/hover/active; the
+   faint row background still shows it's the current target */
+.menu__item--exit.menu__item--highlighted,
+.menu__item--exit:hover {
+	color: var(--text);
+	background: var(--accent-soft);
+}
+.menu__item--exit.menu__item--highlighted::after,
+.menu__item--exit:hover::after {
+	color: var(--muted);
+}
+
+/* -----------------------------------------------------------------------------
+   7. BACKDOORS FALLBACK
+   Deliberately plain / utilitarian. No glow, no caret, no panel chrome — the
+   "escape hatch" reads as a stripped-down link list by contrast.
+   --------------------------------------------------------------------------- */
+.backdoors {
+	width: 100%;
+	max-width: 32ch;
+	margin: 0 auto;
+	padding: var(--space-3);
+	font-family: var(--font-mono);
+	font-size: var(--fs-sm);
+	line-height: var(--lh-body);
+	color: var(--text);
+}
+.backdoors ul { list-style: none; margin: 0; padding: 0; }
+.backdoors li + li { border-top: 1px solid var(--border); }
+.backdoors a {
+	display: block;
+	padding: var(--space-2) 0;
+	color: var(--text);
+	text-decoration: none;
+}
+.backdoors a::before { content: "/ "; color: var(--muted); }
+.backdoors a:hover,
+.backdoors a:focus-visible { color: var(--accent); outline: none; }
+
+/* -----------------------------------------------------------------------------
+   8. ACCESSIBILITY — reduced motion
+   Kill the caret blink, glow pulses, and slide transitions for users who ask.
+   States still change (color/contrast), just without animation.
+   --------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	.maze__title::after,
+	.maze::after {
+		animation: none !important;
+		transition: none !important;
+	}
+	/* MENU: the reveal degrades to a plain show/hide — no slide/scale at all,
+	   just the opacity + visibility toggle (transitions already killed above).
+	   The highlight (accent row) and active (● marker) cues are class-driven
+	   color, not motion, so they still read unambiguously. */
+	.menu {
+		transform: none;
+	}
+}
