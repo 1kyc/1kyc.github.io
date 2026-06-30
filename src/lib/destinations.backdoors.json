@@ -1,0 +1,22 @@
+[
+	{
+		"key": "home",
+		"label": "Home",
+		"cipher": "61c92f35e4"
+	},
+	{
+		"key": "blog",
+		"label": "Blog",
+		"cipher": "f19752fa96"
+	},
+	{
+		"key": "projects",
+		"label": "Projects",
+		"cipher": "0a07b29a3dd787c1e2"
+	},
+	{
+		"key": "about",
+		"label": "About",
+		"cipher": "8b474c73eebf"
+	}
+]

@@ -2,6 +2,30 @@
 
 My **GitHub Pages** user site, published at https://1kyc.github.io.
 
+## Landing page (the maze)
+
+`/` (`src/pages/index.astro`) is a "maze": an interactive puzzle that hides the
+real nav from crawlers. Stack: Astro + **Preact islands** (interactive bits
+only; content pages stay zero-JS).
+
+- **Destinations are hash-hidden.** Real paths never appear as plaintext or
+  `<a href>` in the served HTML/JS. `scripts/gen-destinations.mjs` (run
+  `npm run gen:dest`) is the ONLY place paths live in plaintext; it XOR-encrypts
+  each path with a SHA-256(solution-key) keystream into
+  `src/lib/destinations.<maze>.json`. `src/lib/crypto.ts` `decodePath()` reverses
+  it at solve-time. Keep the generator and runtime byte-compatible.
+- **Registry:** `src/lib/mazes.ts` — `MAZES` + `MAZE_LOADERS` (one lazy
+  `import()` per maze, so each maze is its own JS chunk). `pickRandomMaze()`
+  never returns the `backdoors` fallback; `?m=<id>` selects/shares a maze.
+- **Adding a maze:** add a `MAZES` entry + a `MAZE_LOADERS` loader + the
+  component + its key map in the generator; regenerate. No `MazeApp` edits.
+- **Selector:** `MazeMenu.tsx` — a tap/click/arrow dropdown behind the subtle
+  `::` toggle. `backdoors` is revealed only deliberately (long-press `::`, `b`,
+  or `?m=backdoors`). The CSS reveals the menu on `:focus-within`, so every
+  close path must blur focus inside `.selector`.
+- Styling: `src/styles/maze.css` (imported only by the landing). Ambient moiré
+  background lives in `.maze::after` (calm centre, intricate edges).
+
 ## Workflow rules
 
 - `main` is protected — never push to it directly. Work on a `feat/…`, `fix/…`,
