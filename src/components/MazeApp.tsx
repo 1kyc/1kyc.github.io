@@ -162,8 +162,6 @@ export default function MazeApp(): JSX.Element {
 
 	return (
 		<div class="maze">
-			<h1 class="maze__title">the maze</h1>
-
 			{Active ? (
 				<Active />
 			) : loadError ? (
