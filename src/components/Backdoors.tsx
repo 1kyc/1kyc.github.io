@@ -45,14 +45,27 @@ export default function Backdoors() {
 			: getDestinations(MAZE_ID).map((d) => ({ label: d.label, href: '' }));
 
 	return (
-		<nav class="backdoors" aria-label="backdoors">
-			<ul>
-				{items.map((item) => (
-					<li key={item.label}>
-						<a href={item.href || undefined}>{item.label}</a>
-					</li>
-				))}
-			</ul>
-		</nav>
+		<div class="backdoors">
+			<div class="backdoors__session">
+				<p class="backdoors__line backdoors__cmd">
+					pwd<span class="backdoors__comment">huh. found it.</span>
+				</p>
+				<p class="backdoors__line backdoors__out">/backdoors</p>
+				<p class="backdoors__line backdoors__cmd">ls -1F</p>
+			</div>
+			<nav class="backdoors__ls" aria-label="backdoors">
+				<ul>
+					{items.map((item) => (
+						<li key={item.label}>
+							<a href={item.href || undefined}>{item.label}</a>
+						</li>
+					))}
+				</ul>
+			</nav>
+			<p
+				class="backdoors__line backdoors__cmd backdoors__prompt"
+				aria-hidden="true"
+			></p>
+		</div>
 	);
 }
