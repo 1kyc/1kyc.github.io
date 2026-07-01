@@ -4,7 +4,7 @@ import type { FunctionComponent, JSX } from 'preact';
 import { REAL_MAZES, resolveInitialMaze, MAZE_LOADERS } from '../lib/mazes';
 import MazeMenu from './MazeMenu';
 
-/** How long the "::" glyph must be held to deliberately reveal backdoors. */
+/** How long the dashed-ring toggle must be held to deliberately reveal backdoors. */
 const LONG_PRESS_MS = 600;
 
 /** Reflect the active maze id into the URL (?m=<id>) without reloading. */
@@ -38,7 +38,7 @@ export default function MazeApp(): JSX.Element {
 
 	const revealBackdoors = (): void => setBackdoorsRevealed(true);
 
-	// Long-press on the "::" glyph is the deliberate gesture that reveals the
+	// Long-press on the dashed-ring toggle is the deliberate gesture that reveals the
 	// backdoors detent. A press that crosses LONG_PRESS_MS reveals + opens the
 	// menu and swallows the click that pointerup would otherwise fire (so the
 	// long-press doesn't ALSO toggle open/closed). Short taps fall through to the
@@ -46,7 +46,7 @@ export default function MazeApp(): JSX.Element {
 	const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const suppressClick = useRef(false);
 
-	// Wraps the menu + the "::" toggle. Used to tell an "inside" pointer (which
+	// Wraps the menu + the dashed-ring toggle. Used to tell an "inside" pointer (which
 	// should NOT close the menu) from an "outside" one (which should).
 	const selectorRef = useRef<HTMLDivElement>(null);
 
@@ -196,7 +196,19 @@ export default function MazeApp(): JSX.Element {
 					onPointerLeave={cancelLongPress}
 					onPointerCancel={cancelLongPress}
 				>
-					::
+					<svg
+						class="selector__ring"
+						viewBox="0 0 16 16"
+						width="12"
+						height="12"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.4"
+						aria-hidden="true"
+						focusable="false"
+					>
+						<circle cx="8" cy="8" r="6" pathLength="100" stroke-dasharray="5 5" />
+					</svg>
 				</button>
 			</div>
 		</div>

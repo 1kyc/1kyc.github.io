@@ -17,7 +17,8 @@
      .backdoors       the plain accessible fallback list
      .selector        the hidden maze switcher (subtle affordance)
        .selector--open  expanded state
-       .selector__toggle  the "::" bait glyph (unchanged)
+       .selector__toggle  the dashed-ring bait icon
+       .selector__ring    the inline SVG dashed circle inside the toggle
      .menu            the dropdown panel revealed when the toggle is active
        .menu__list    the NATIVE scroll region (role="listbox" lives on .menu)
        .menu__item    one maze label (role="option")
@@ -328,8 +329,9 @@ body {
 
 /* -----------------------------------------------------------------------------
    6. HIDDEN MAZE SELECTOR
-   Affordance idea: a single low-contrast glyph (e.g. "::" or "⠿") pinned to a
-   page corner, rendered in --muted at low opacity so it reads as decoration.
+   Affordance idea: a single low-contrast icon (a small dashed, unclosed ring)
+   pinned to a page corner, rendered in --muted at low opacity so it reads as
+   decoration.
    On hover/focus it brightens and the switcher options slide out. Keyboard-
    reachable (focus-visible) so it isn't mouse-only. Easy to miss, findable by
    the curious.
@@ -351,19 +353,19 @@ body {
 	-webkit-user-select: none;
 }
 
-/* the bait glyph — barely there until touched */
+/* the bait ring — a dashed, unclosed loop; barely there until touched */
 .selector__toggle {
 	appearance: none;
 	background: none;
 	border: none;
 	padding: var(--space-1);
-	font-family: var(--font-mono);
-	font-size: var(--fs-xs);
-	letter-spacing: 0.3em;
+	display: grid;                 /* center the icon, no text baseline gap */
+	place-items: center;
+	line-height: 0;
 	color: var(--muted);
 	opacity: 0.25;                 /* decoration-low: present but ignorable */
 	cursor: default;               /* no obvious "I'm a button" pointer */
-	user-select: none;             /* the "::" bait must not be selectable text */
+	user-select: none;
 	-webkit-user-select: none;
 	transition: opacity var(--dur) var(--ease), color var(--dur) var(--ease);
 }
@@ -374,12 +376,19 @@ body {
 	outline: none;
 }
 
+/* icon sized to where the xs mono glyph sat; inherits the toggle's color */
+.selector__ring {
+	display: block;
+	width: var(--fs-xs);           /* 12px */
+	height: var(--fs-xs);
+}
+
 /* -----------------------------------------------------------------------------
    6b. MENU (the maze dropdown)
    A plain, robust dropdown styled as a terminal command list. No physics, no
    scroll-snap, no centering, no drag — selection is a tap/click/arrow highlight.
 
-   It reuses the OVERLAY approach that kept the "::" toggle from jumping on open:
+   It reuses the OVERLAY approach that kept the dashed-ring toggle from jumping on open:
    the panel is position:absolute, anchored ABOVE the toggle (bottom-right), and
    revealed via opacity/visibility/transform — never by collapsing height — so
    the toggle never moves and the geometry is stable the instant it appears.
@@ -395,7 +404,7 @@ body {
 	/* one row's min-height — the list window shows ~6.5 of these before scroll */
 	--row-h: 2.5rem;
 
-	/* Overlay, not in flow: pinned ABOVE the "::" toggle, bottom-right aligned.
+	/* Overlay, not in flow: pinned ABOVE the dashed-ring toggle, bottom-right aligned.
 	   The toggle is the selector's only flow child, so the selector's box == the
 	   toggle's box; anchoring to bottom:100% floats the menu right on top of the
 	   toggle and opening/closing never shifts the toggle. */
