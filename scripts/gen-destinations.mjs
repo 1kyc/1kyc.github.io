@@ -37,19 +37,16 @@ const DESTINATIONS = {
 //   - backdoors:  the escape hatch; it just decodes, so keys are the ids.
 //   - (future) rubik: e.g. { home: 'U:white', blog: 'F:red', ... } — a
 //     canonical token derived only from the solved face, not the whole cube.
+// Both current mazes use the same trivial mapping: the solution key IS the
+// destination id. Derive that identity map once from DESTINATIONS instead of
+// spelling it out per maze (a future non-identity maze, e.g. rubik, gets its
+// own explicit map).
+const IDENTITY = Object.fromEntries(
+	Object.keys(DESTINATIONS).map((id) => [id, id]),
+);
 const MAZE_KEYS = {
-	wordsearch: {
-		home: 'home',
-		blog: 'blog',
-		projects: 'projects',
-		about: 'about',
-	},
-	backdoors: {
-		home: 'home',
-		blog: 'blog',
-		projects: 'projects',
-		about: 'about',
-	},
+	wordsearch: IDENTITY,
+	backdoors: IDENTITY,
 };
 
 /**

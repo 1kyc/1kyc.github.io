@@ -12,6 +12,7 @@
        .cell--hover     pointer is over it
        .cell--active    part of the current drag selection
        .cell--found     belongs to a solved word
+       .cell--brand     the four baked-in "1KYC" gold hint letters (centre diagonal)
      .word-found      transient toast/label when a word resolves
      .backdoors       the escape hatch, staged as a fake terminal session
        .backdoors__session  the transcript block (pwd + /backdoors + ls -1F)
@@ -79,6 +80,8 @@ body {
 	--accent-2-soft: color-mix(in srgb, var(--accent-2) 16%, transparent);
 	--brand-soft:    color-mix(in srgb, var(--brand) 45%, transparent);
 	--glow:          color-mix(in srgb, var(--accent) 40%, transparent);
+	--moire-a:       color-mix(in srgb, var(--text) 11%, transparent);
+	--moire-b:       color-mix(in srgb, var(--accent-2) 11%, transparent);
 
 	/* typography */
 	--font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code",
@@ -88,9 +91,7 @@ body {
 	--fs-xs:   0.75rem;   /* 12px — hints, selector, meta              */
 	--fs-sm:   0.875rem;  /* 14px — body / backdoor links              */
 	--fs-base: 1.125rem;  /* 18px — grid letters                       */
-	--fs-lg:   1.5rem;    /* 24px — title                              */
 
-	--lh-tight: 1.2;
 	--lh-body:  1.6;
 
 	/* spacing rhythm (4px base) */
@@ -183,8 +184,8 @@ body {
 		repeating-linear-gradient(
 			7deg,
 			transparent 0,
-			color-mix(in srgb, var(--text) 11%, transparent) 1px,
-			color-mix(in srgb, var(--text) 11%, transparent) 1.5px,
+			var(--moire-a) 1px,
+			var(--moire-a) 1.5px,
 			transparent 2.5px,
 			transparent 12px
 		),
@@ -192,8 +193,8 @@ body {
 		repeating-linear-gradient(
 			11.5deg,
 			transparent 0,
-			color-mix(in srgb, var(--accent-2) 11%, transparent) 1px,
-			color-mix(in srgb, var(--accent-2) 11%, transparent) 1.5px,
+			var(--moire-b) 1px,
+			var(--moire-b) 1.5px,
 			transparent 2.5px,
 			transparent 12px
 		);
@@ -352,8 +353,6 @@ body {
 	display: flex;
 	align-items: center;
 	gap: var(--space-2);
-	font-size: var(--fs-xs);
-	color: var(--muted);
 
 	/* nothing in the affordance should read as selectable body text */
 	user-select: none;
@@ -374,8 +373,6 @@ body {
 	color: var(--muted);
 	opacity: 0.25;                 /* decoration-low: present but ignorable */
 	cursor: default;               /* no obvious "I'm a button" pointer */
-	user-select: none;
-	-webkit-user-select: none;
 	transition: opacity var(--dur) var(--ease), color var(--dur) var(--ease);
 	animation: selector-beacon 20s ease-in-out infinite;
 }
@@ -641,7 +638,6 @@ body {
 	letter-spacing: 0.02em;
 }
 
-.backdoors__cmd { color: var(--text); }
 .backdoors__cmd::before {
 	content: "$ ";
 	color: var(--accent);
@@ -652,8 +648,6 @@ body {
 	color: var(--muted);
 }
 .backdoors__comment::before { content: "# "; }
-
-.backdoors__out { color: var(--text); }
 
 .backdoors__ls { margin: 0; }
 .backdoors__ls ul { list-style: none; margin: 0; padding: 0; }

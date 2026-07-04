@@ -8,6 +8,7 @@
 // Adding a new maze: add its key map in the generator, regenerate, then import
 // the emitted JSON here and register it in TABLES.
 
+import type { MazeId } from './mazes';
 import wordsearch from './destinations.wordsearch.json';
 import backdoors from './destinations.backdoors.json';
 
@@ -20,14 +21,17 @@ export interface Destination {
 	cipher: string;
 }
 
-const TABLES: Record<string, readonly Destination[]> = {
-	wordsearch: wordsearch as Destination[],
-	backdoors: backdoors as Destination[],
+const TABLES: Record<MazeId, readonly Destination[]> = {
+	wordsearch: wordsearch satisfies readonly Destination[],
+	backdoors: backdoors satisfies readonly Destination[],
 };
+
+/** Shared empty result so a miss doesn't allocate a fresh array each call. */
+const EMPTY: readonly Destination[] = [];
 
 /** All destinations for a maze (empty if the maze has no table). */
 export function getDestinations(mazeId: string): readonly Destination[] {
-	return TABLES[mazeId] ?? [];
+	return TABLES[mazeId] ?? EMPTY;
 }
 
 /** Find a destination within a maze by its solution key. */

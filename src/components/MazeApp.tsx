@@ -66,27 +66,11 @@ export default function MazeApp(): JSX.Element {
 			setOpen(true); // surface the menu so the new detent is visible
 		}, LONG_PRESS_MS);
 	};
-	const onToggleClick = (): void => {
-		if (suppressClick.current) {
-			suppressClick.current = false;
-			return; // this click was the tail of a long-press — ignore it
-		}
-		if (open) {
-			// Closing: clicking the toggle leaves focus on it, and the CSS also
-			// reveals the menu on `.selector:focus-within` — so without blurring,
-			// the menu would stay visible and the toggle could never dismiss it.
-			const sel = selectorRef.current;
-			const active = document.activeElement;
-			if (sel && active instanceof HTMLElement && sel.contains(active)) {
-				active.blur();
-			}
-		}
-		setOpen((v) => !v);
-	};
-
 	// Close the menu. The CSS reveals it on `.selector:focus-within` too, so focus
 	// (on the listbox or toggle) must be dropped or the menu would stay visible —
-	// this covers every close path, including selecting a row.
+	// this covers every close path, including selecting a row. Every other close
+	// path (toggle, outside-click, Escape) routes through here so the blur-then-
+	// close contract lives in exactly one place.
 	const closeMenu = (): void => {
 		const sel = selectorRef.current;
 		const active = document.activeElement;
@@ -94,6 +78,17 @@ export default function MazeApp(): JSX.Element {
 			active.blur();
 		}
 		setOpen(false);
+	};
+
+	const onToggleClick = (): void => {
+		if (suppressClick.current) {
+			suppressClick.current = false;
+			return; // this click was the tail of a long-press — ignore it
+		}
+		// Closing must blur focus inside the selector (the CSS keeps the menu
+		// visible on `:focus-within`), which is exactly what closeMenu() does.
+		if (open) closeMenu();
+		else setOpen(true);
 	};
 
 	// Drop a pending long-press timer if we unmount mid-hold.
@@ -109,23 +104,17 @@ export default function MazeApp(): JSX.Element {
 		const onDocPointerDown = (e: PointerEvent): void => {
 			const sel = selectorRef.current;
 			if (!sel || sel.contains(e.target as Node)) return;
-			// Blur focus inside the selector first: the CSS keeps the menu visible on
-			// `:focus-within`, so setOpen(false) alone won't hide it — and a touch tap
-			// on a non-focusable area doesn't blur the listbox on its own.
-			const active = document.activeElement;
-			if (active instanceof HTMLElement && sel.contains(active)) active.blur();
-			setOpen(false);
+			// Outside tap: closeMenu() drops focus inside the selector first (the CSS
+			// keeps the menu visible on `:focus-within`, and a touch tap on a
+			// non-focusable area doesn't blur the listbox on its own).
+			closeMenu();
 		};
+		// Note: MazeMenu ALSO handles Escape (to close from within the listbox); this
+		// document-level listener covers the "menu open but focus left the listbox"
+		// case, so both Escape paths are intentional — don't delete one as redundant.
 		const onKeyDown = (e: KeyboardEvent): void => {
 			if (e.key !== 'Escape') return;
-			setOpen(false);
-			// The menu is also kept visible by `.selector:focus-within`; if focus is
-			// inside it, drop focus so closing actually hides it.
-			const sel = selectorRef.current;
-			const active = document.activeElement;
-			if (sel && active instanceof HTMLElement && sel.contains(active)) {
-				active.blur();
-			}
+			closeMenu();
 		};
 		document.addEventListener('pointerdown', onDocPointerDown);
 		document.addEventListener('keydown', onKeyDown);
