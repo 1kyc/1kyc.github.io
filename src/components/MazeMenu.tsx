@@ -1,10 +1,13 @@
 /** @jsxImportSource preact */
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { JSX, TargetedKeyboardEvent } from 'preact';
 import type { MazeDef } from '../lib/mazes';
 
 const BACKDOORS_ID = 'backdoors';
 const OPT_PREFIX = 'menu-opt-';
+
+/** The backdoors escape-hatch row, appended once it's deliberately revealed. */
+const EXIT_ROW: MazeDef = { id: BACKDOORS_ID, label: 'backdoors', kind: 'fallback' };
 
 interface MazeMenuProps {
 	/** The real, user-facing mazes (the backdoors row is appended internally). */
@@ -36,9 +39,10 @@ export default function MazeMenu({
 	onRevealBackdoors,
 }: MazeMenuProps): JSX.Element {
 	// Rows: the real mazes, plus backdoors once it's been deliberately revealed.
-	const items: MazeDef[] = backdoorsRevealed
-		? [...mazes, { id: BACKDOORS_ID, label: 'backdoors', kind: 'fallback' }]
-		: [...mazes];
+	const items: MazeDef[] = useMemo(
+		() => (backdoorsRevealed ? [...mazes, EXIT_ROW] : [...mazes]),
+		[mazes, backdoorsRevealed],
+	);
 
 	const menuRef = useRef<HTMLDivElement>(null);
 
@@ -57,10 +61,9 @@ export default function MazeMenu({
 	// Bring a row into view without precise centering — block:'nearest' won't
 	// jump if the row is already visible.
 	const scrollIntoView = (id: string): void => {
-		const el = menuRef.current?.querySelector<HTMLElement>(
-			`#${CSS.escape(OPT_PREFIX + id)}`,
-		);
-		el?.scrollIntoView({ block: 'nearest' });
+		// Row ids are globally unique (OPT_PREFIX + maze id), so a plain
+		// getElementById is enough — no menuRef scoping or CSS.escape needed.
+		document.getElementById(OPT_PREFIX + id)?.scrollIntoView({ block: 'nearest' });
 	};
 
 	// Move the highlight and make sure the new row is visible.
@@ -173,6 +176,9 @@ export default function MazeMenu({
 								(isHighlighted ? ' menu__item--highlighted' : '') +
 								(isExit ? ' menu__item--exit' : '')
 							}
+							// Hover sets the highlight directly (no scroll); keyboard nav
+							// uses moveHighlight (which scrolls). The pointer is already on
+							// the row, so scrolling here would just cause jank.
 							onMouseEnter={() => setHighlightedId(m.id)}
 							onClick={() => commit(m.id)}
 						>

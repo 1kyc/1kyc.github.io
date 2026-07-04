@@ -85,7 +85,9 @@ function buildGrid(words: readonly string[]): string[][] {
 	for (let i = 0; i < 50 && layout === null; i++) {
 		layout = tryBuild(words);
 	}
-	const safe = layout ?? tryBuild([]) ?? [];
+	// tryBuild([]) always returns a seeded grid (an empty word list never fails),
+	// so this fallback is guaranteed non-null.
+	const safe = layout ?? tryBuild([])!;
 	return safe.map((row) => row.map((ch) => ch ?? randLetter()));
 }
 
@@ -125,17 +127,24 @@ export default function WordSearch() {
 
 	const draggingRef = useRef(false);
 	const startRef = useRef<Cell | null>(null);
+	// Mirrors `selection` so the synchronous onPointerUp -> finalize reads the
+	// latest path without a stale render closure (like navTimerRef below).
 	const selectionRef = useRef<Cell[]>([]);
 	// Post-solve navigation timer — cleared on unmount so switching mazes within
 	// the 700ms confirm window doesn't force-navigate away after the component is
 	// gone.
 	const navTimerRef = useRef<number | null>(null);
-	useEffect(
-		() => () => {
+	// Mounted flag (mirrors the alive idiom in Backdoors.tsx): finalize awaits an
+	// async decode, and if the maze is switched mid-await the resolved promise must
+	// NOT touch state or schedule the nav timer on an unmounted component.
+	const aliveRef = useRef(true);
+	useEffect(() => {
+		aliveRef.current = true;
+		return () => {
+			aliveRef.current = false;
 			if (navTimerRef.current !== null) window.clearTimeout(navTimerRef.current);
-		},
-		[],
-	);
+		};
+	}, []);
 
 	const setSel = (path: Cell[]): void => {
 		selectionRef.current = path;
@@ -150,19 +159,24 @@ export default function WordSearch() {
 
 		const letters = path.map(([r, c]) => grid[r]![c]!).join('');
 		const forward = letters.toLowerCase();
-		const reversed = forward.split('').reverse().join('');
+		const reversed = [...forward].reverse().join('');
 		const entry =
 			findDestination(MAZE_ID, forward) ?? findDestination(MAZE_ID, reversed);
 		if (!entry) return;
 
-		// lock the cells in, confirm, then decode + navigate
+		// Decode first, then bail if the maze was switched during the await — so the
+		// resolved promise never locks cells, toasts, or schedules a nav timer on an
+		// unmounted component.
+		const dest = await decodePath(entry.cipher, entry.key);
+		if (!aliveRef.current) return;
+
+		// lock the cells in, confirm, then navigate
 		setFound((prev) => {
 			const next = new Set(prev);
 			for (const [r, c] of path) next.add(key(r, c));
 			return next;
 		});
 		setToast(entry.label.toLowerCase());
-		const dest = await decodePath(entry.cipher, entry.key);
 		navTimerRef.current = window.setTimeout(() => {
 			window.location.href = dest;
 		}, 700);
@@ -181,8 +195,21 @@ export default function WordSearch() {
 	const onPointerMove = (e: TargetedPointerEvent<HTMLDivElement>): void => {
 		const pos = cellFromPoint(e.clientX, e.clientY);
 		if (draggingRef.current) {
-			if (pos && startRef.current) setSel(linePath(startRef.current, pos));
+			if (!pos || !startRef.current) return;
+			// Skip the no-op: if the pointer is still over the current selection's
+			// endpoint, linePath would rebuild the identical path — don't re-render.
+			const cur = selectionRef.current;
+			const end = cur[cur.length - 1];
+			if (end && key(end[0], end[1]) === key(pos[0], pos[1])) return;
+			setSel(linePath(startRef.current, pos));
 		} else {
+			// Skip the no-op: pointer still over the same hovered cell (or still off
+			// the grid) — rebuilding a Set + re-rendering 100 cells would change nothing.
+			const sameCell =
+				pos === null
+					? hovered === null
+					: hovered !== null && key(pos[0], pos[1]) === key(hovered[0], hovered[1]);
+			if (sameCell) return;
 			setHovered(pos);
 		}
 	};

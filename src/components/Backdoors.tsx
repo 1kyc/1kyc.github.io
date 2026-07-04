@@ -10,20 +10,25 @@ interface Link {
 	href: string;
 }
 
+// Resolved once (MAZE_ID is constant, the table is a static import). PLACEHOLDER
+// seeds the pre-decode render with labels only, so no path leaks before mount.
+const DESTS = getDestinations(MAZE_ID);
+const PLACEHOLDER: Link[] = DESTS.map((d) => ({ label: d.label, href: '' }));
+
 /**
  * The deliberate escape hatch: a plain list of real links. Because this is a
  * client-rendered island, the paths aren't in the static HTML — they're decoded
  * at mount and only then written onto the anchors.
  */
 export default function Backdoors() {
-	const [links, setLinks] = useState<Link[]>([]);
+	const [links, setLinks] = useState<Link[]>(PLACEHOLDER);
 
 	useEffect(() => {
 		let alive = true;
 		// Decode each link independently: one failure leaves that single anchor
 		// href-less rather than dropping ALL the escape-hatch links.
 		Promise.all(
-			getDestinations(MAZE_ID).map(async (d) => {
+			DESTS.map(async (d) => {
 				try {
 					return { label: d.label, href: await decodePath(d.cipher, d.key) };
 				} catch {
@@ -38,11 +43,9 @@ export default function Backdoors() {
 		};
 	}, []);
 
-	// Before decode resolves, render labels without hrefs so no path leaks early.
-	const items: Link[] =
-		links.length > 0
-			? links
-			: getDestinations(MAZE_ID).map((d) => ({ label: d.label, href: '' }));
+	// `links` starts as PLACEHOLDER (labels only) and is replaced once decode
+	// resolves, so no path leaks before mount.
+	const items = links;
 
 	return (
 		<div class="backdoors">
