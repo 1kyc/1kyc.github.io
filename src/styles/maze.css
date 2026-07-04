@@ -72,10 +72,12 @@ body {
 	/* accents */
 	--accent:    #4ade80;   /* selection / active drag path (cipher green)     */
 	--accent-2:  #38bdf8;   /* resolved word (cyan) — distinct from selection  */
+	--brand:     #fbbf24;   /* baked-in "1KYC" hint letters (warm gold)        */
 
 	/* derived, translucent variants (kept here so usage stays declarative) */
 	--accent-soft:   color-mix(in srgb, var(--accent) 18%, transparent);
 	--accent-2-soft: color-mix(in srgb, var(--accent-2) 16%, transparent);
+	--brand-soft:    color-mix(in srgb, var(--brand) 45%, transparent);
 	--glow:          color-mix(in srgb, var(--accent) 40%, transparent);
 
 	/* typography */
@@ -276,6 +278,26 @@ body {
 		background-color var(--dur) var(--ease),
 		box-shadow var(--dur) var(--ease),
 		transform var(--dur) var(--ease);
+}
+
+/* brand: the four baked-in "1KYC" hint letters on the centre diagonal.
+   Static — warm gold so they pop out of the muted field without mimicking the
+   green active-drag or cyan found-word cues. If a pointer/selection lands on a
+   hint cell, the interactive `color` wins by source order (rules below), and the
+   higher-specificity override that follows resets this rule's weight + glow. */
+.cell--brand {
+	color: var(--brand);
+	font-weight: 600;
+	text-shadow: 0 0 6px var(--brand-soft);
+}
+
+/* When a hint cell is also hovered/selected/solved, drop the gold weight+glow
+   so the green/cyan interactive cue reads cleanly (higher specificity wins). */
+.cell--brand.cell--hover,
+.cell--brand.cell--active,
+.cell--brand.cell--found {
+	font-weight: 500;
+	text-shadow: none;
 }
 
 /* hover: letter wakes up */

@@ -28,11 +28,24 @@ const randLetter = (): string =>
 
 const key = (r: number, c: number): string => `${r},${c}`;
 
+// Fixed hint letters seeded onto the center diagonal so it spells 1KYC. Words
+// place around these; the final fill preserves them. Rendered in the brand color.
+// Coords are derived from SIZE so the run stays centered if the grid is resized.
+const BRAND_WORD = '1KYC';
+const BRAND_START = Math.floor((SIZE - BRAND_WORD.length) / 2);
+const BRAND_CELLS: ReadonlyArray<readonly [number, number, string]> = [...BRAND_WORD].map(
+	(ch, i) => [BRAND_START + i, BRAND_START + i, ch] as const,
+);
+const BRAND_KEYS = new Set(BRAND_CELLS.map(([r, c]) => key(r, c)));
+
 /** Try to place every word into a fresh grid; returns null if any word fails. */
 function tryBuild(words: readonly string[]): (string | null)[][] | null {
 	const grid: (string | null)[][] = Array.from({ length: SIZE }, () =>
 		Array.from({ length: SIZE }, () => null),
 	);
+
+	// Seed the fixed hint letters first so word placement flows around them.
+	for (const [r, c, ch] of BRAND_CELLS) grid[r]![c] = ch;
 
 	for (const word of words) {
 		let placed = false;
@@ -187,7 +200,6 @@ export default function WordSearch() {
 
 	return (
 		<>
-			<p class="maze__hint">find the way out</p>
 			<div
 				class="grid"
 				style={`--cols:${SIZE}`}
@@ -206,6 +218,7 @@ export default function WordSearch() {
 						else if (activeSet.has(k)) cls.push('cell--active');
 						else if (hovered && hovered[0] === r && hovered[1] === c)
 							cls.push('cell--hover');
+						if (BRAND_KEYS.has(k)) cls.push('cell--brand');
 						return (
 							<div key={k} class={cls.join(' ')} data-row={r} data-col={c}>
 								{ch}
