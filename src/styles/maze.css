@@ -338,7 +338,9 @@ body {
 	-webkit-user-select: none;
 }
 
-/* the bait ring — a dashed, unclosed loop; barely there until touched */
+/* the bait ring — a dashed, unclosed loop; barely there until touched.
+   A slow "beacon" pulse (see @keyframes selector-beacon below) briefly flashes
+   it green twice per 20s so first-timers can spot the affordance. */
 .selector__toggle {
 	appearance: none;
 	background: none;
@@ -353,12 +355,40 @@ body {
 	user-select: none;
 	-webkit-user-select: none;
 	transition: opacity var(--dur) var(--ease), color var(--dur) var(--ease);
+	animation: selector-beacon 20s ease-in-out infinite;
 }
 .selector__toggle:hover,
 .selector__toggle:focus-visible {
 	opacity: 1;
 	color: var(--accent);
 	outline: none;
+}
+/* Kill the beacon in every non-idle state (hover / keyboard focus / open menu).
+   A running animation overrides non-!important declarations, so without this the
+   beacon's rest keyframe would stomp the hover/focus opacity+color set above. */
+.selector__toggle:hover,
+.selector__toggle:focus-visible,
+.selector--open .selector__toggle,
+.selector:focus-within .selector__toggle {
+	animation: none;
+}
+
+/* -----------------------------------------------------------------------------
+   BEACON — discoverability cue for the bait ring.
+   A ~20s heartbeat: two quick green flashes near the start of each cycle
+   (0%–6% ≈ the first 1.2s), then a long idle stretch back at the resting subtle
+   state. A peripheral-vision hint that helps first-timers find the toggle
+   without a persistent, nagging animation.
+   Reduced motion: the file's trailing `* { animation: none !important }` block
+   disables this automatically; there is no static fallback (it is purely a cue).
+   --------------------------------------------------------------------------- */
+@keyframes selector-beacon {
+	0%   { opacity: 0.25; color: var(--muted);  transform: scale(1);    filter: none; }
+	1.5% { opacity: 1;    color: var(--accent); transform: scale(1.12); filter: drop-shadow(0 0 4px var(--glow)); } /* flash 1 peak */
+	3%   { opacity: 0.4;  color: var(--muted);  transform: scale(1);    filter: none; }                             /* dip */
+	4.5% { opacity: 1;    color: var(--accent); transform: scale(1.12); filter: drop-shadow(0 0 4px var(--glow)); } /* flash 2 peak */
+	6%   { opacity: 0.25; color: var(--muted);  transform: scale(1);    filter: none; }                             /* settle */
+	100% { opacity: 0.25; color: var(--muted);  transform: scale(1);    filter: none; }                             /* long idle */
 }
 
 /* icon sized to where the xs mono glyph sat; inherits the toggle's color */

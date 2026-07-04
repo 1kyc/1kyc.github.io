@@ -19,10 +19,10 @@ only; content pages stay zero-JS).
   never returns the `backdoors` fallback; `?m=<id>` selects/shares a maze.
 - **Adding a maze:** add a `MAZES` entry + a `MAZE_LOADERS` loader + the
   component + its key map in the generator; regenerate. No `MazeApp` edits.
-- **Selector:** `MazeMenu.tsx` — a tap/click/arrow dropdown behind the subtle
-  `::` toggle. `backdoors` is revealed only deliberately (long-press `::`, `b`,
-  or `?m=backdoors`). The CSS reveals the menu on `:focus-within`, so every
-  close path must blur focus inside `.selector`.
+- **Selector:** `MazeMenu.tsx` — a tap/click/arrow dropdown behind a subtle
+  toggle. `backdoors` is revealed only deliberately (long-press the toggle, `b`,
+  or `?m=backdoors`). The menu opens on `:focus-within`, so every close path must
+  blur focus inside `.selector`.
 - Styling: `src/styles/maze.css` (imported only by the landing). Ambient moiré
   background lives in `.maze::after` (calm centre, intricate edges).
 
