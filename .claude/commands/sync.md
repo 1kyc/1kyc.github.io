@@ -15,9 +15,12 @@ Steps:
 4. Fast-forward only: `git merge --ff-only origin/main`. If it can't
    fast-forward (local `main` has diverging commits), STOP and report it rather
    than creating a merge commit — the user decides how to reconcile.
-5. Report local branches whose upstream is now gone (merged), so the user can
-   clean them up: `git branch -vv | grep ': gone]'`. List them but do NOT delete
-   anything — deletion is a separate, deliberate act.
+5. Find local branches whose upstream is now gone (merged): `git branch -vv |
+   grep ': gone]'`. If any exist, list them and ASK the user to confirm before
+   deleting. On confirmation, force-delete them with `git branch -D` (safe
+   `-d` refuses squash-merged branches, and a `gone` upstream is the signal
+   they really merged). Never delete the current branch, `main`, or a branch
+   whose upstream still exists. If the user declines, leave them untouched.
 6. If $ARGUMENTS is non-empty, treat it as a new branch name and create + switch
    to it from the freshly-updated `main` (`git checkout -b $ARGUMENTS`). Prefer a
    `feat/…`, `fix/…`, `chore/…`, or `spike/…` prefix per the repo's workflow
