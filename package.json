@@ -11,15 +11,26 @@
     "preview": "astro preview",
     "check": "astro check",
     "gen:dest": "node scripts/gen-destinations.mjs",
+    "build:arm": "node scripts/build-canadarm.mjs",
+    "build:mbs": "node scripts/build-mbs.mjs",
+    "verify:arm": "node scripts/verify-canadarm.mjs",
     "astro": "astro"
   },
   "dependencies": {
     "@astrojs/preact": "^6.0.0",
     "astro": "^6.4.7",
-    "preact": "^10.29.3"
+    "preact": "^10.29.3",
+    "three": "^0.180.0"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.9",
+    "@gltf-transform/core": "^4.4.1",
+    "@gltf-transform/extensions": "^4.4.1",
+    "@gltf-transform/functions": "^4.4.1",
+    "@types/three": "^0.180.0",
+    "draco3dgltf": "^1.5.7",
+    "jsdom": "^29.1.1",
+    "sharp": "^0.35.3",
     "typescript": "^6.0.3"
   }
 }

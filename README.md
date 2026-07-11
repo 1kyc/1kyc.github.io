@@ -27,3 +27,8 @@ the site and publishes it to GitHub Pages.
 
 > One-time setup: in the repo's **Settings → Pages**, set **Source** to
 > **GitHub Actions**.
+
+## Credits
+
+Third-party 3D models (Canadarm2, ISS, Mobile Base System) and their licenses
+are listed in [CREDITS.md](CREDITS.md).
