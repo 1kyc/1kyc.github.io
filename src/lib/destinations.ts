@@ -10,6 +10,7 @@
 
 import type { MazeId } from './mazes';
 import wordsearch from './destinations.wordsearch.json';
+import manipulator from './destinations.manipulator.json';
 import backdoors from './destinations.backdoors.json';
 
 export interface Destination {
@@ -23,6 +24,7 @@ export interface Destination {
 
 const TABLES: Record<MazeId, readonly Destination[]> = {
 	wordsearch: wordsearch satisfies readonly Destination[],
+	manipulator: manipulator satisfies readonly Destination[],
 	backdoors: backdoors satisfies readonly Destination[],
 };
 

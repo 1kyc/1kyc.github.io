@@ -44,9 +44,17 @@ const DESTINATIONS = {
 const IDENTITY = Object.fromEntries(
 	Object.keys(DESTINATIONS).map((id) => [id, id]),
 );
+// manipulator ("orbit"): each destination is a capture target with an orbital
+// codename. The codename IS the solution key — the string the target resolves to
+// when the Canadarm2 end-effector captures it (never shown as a path). Every
+// ghost target maps its codename -> destination the same way.
+const MANIPULATOR = {
+	home: 'HARMONY',
+};
 const MAZE_KEYS = {
 	wordsearch: IDENTITY,
 	backdoors: IDENTITY,
+	manipulator: MANIPULATOR,
 };
 
 /**

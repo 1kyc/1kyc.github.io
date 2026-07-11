@@ -1,19 +1,11 @@
 /** @jsxImportSource preact */
-import { useEffect, useState } from 'preact/hooks';
 import { getDestinations } from '../lib/destinations';
-import { decodePath } from '../lib/crypto';
+import { useDecodedLinks } from '../lib/useDecodedLinks';
 
 const MAZE_ID = 'backdoors';
 
-interface Link {
-	label: string;
-	href: string;
-}
-
-// Resolved once (MAZE_ID is constant, the table is a static import). PLACEHOLDER
-// seeds the pre-decode render with labels only, so no path leaks before mount.
+// Resolved once (MAZE_ID is constant, the table is a static import).
 const DESTS = getDestinations(MAZE_ID);
-const PLACEHOLDER: Link[] = DESTS.map((d) => ({ label: d.label, href: '' }));
 
 /**
  * The deliberate escape hatch: a plain list of real links. Because this is a
@@ -21,31 +13,8 @@ const PLACEHOLDER: Link[] = DESTS.map((d) => ({ label: d.label, href: '' }));
  * at mount and only then written onto the anchors.
  */
 export default function Backdoors() {
-	const [links, setLinks] = useState<Link[]>(PLACEHOLDER);
-
-	useEffect(() => {
-		let alive = true;
-		// Decode each link independently: one failure leaves that single anchor
-		// href-less rather than dropping ALL the escape-hatch links.
-		Promise.all(
-			DESTS.map(async (d) => {
-				try {
-					return { label: d.label, href: await decodePath(d.cipher, d.key) };
-				} catch {
-					return { label: d.label, href: '' };
-				}
-			}),
-		).then((resolved) => {
-			if (alive) setLinks(resolved);
-		});
-		return () => {
-			alive = false;
-		};
-	}, []);
-
-	// `links` starts as PLACEHOLDER (labels only) and is replaced once decode
-	// resolves, so no path leaks before mount.
-	const items = links;
+	// labels-only until the in-effect decode resolves, so no path leaks pre-mount
+	const items = useDecodedLinks(DESTS);
 
 	return (
 		<div class="backdoors">

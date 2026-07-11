@@ -1,0 +1,931 @@
+/** @jsxImportSource preact */
+import { useEffect, useRef, useState } from 'preact/hooks';
+import type { JSX, TargetedEvent, TargetedInputEvent } from 'preact';
+import * as THREE from 'three';
+import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { getDestinations } from '../lib/destinations';
+import type { Destination } from '../lib/destinations';
+import { decodePath } from '../lib/crypto';
+import { useDecodedLinks } from '../lib/useDecodedLinks';
+
+const MAZE_ID = 'manipulator';
+
+const DEG2RAD = Math.PI / 180;
+const LIMIT_DEG = 270; // ±270° per joint (±4.71239 rad)
+
+// ---------------------------------------------------------------------------
+// Joint chain. Each node is rotated about its LOCAL axis; the sign lives in the
+// axis vector. Order matters — it mirrors the URDF chain in canadarm2.glb.
+// ---------------------------------------------------------------------------
+interface JointDef {
+	name: string;
+	short: string;
+	axis: readonly [number, number, number];
+}
+const JOINTS: readonly JointDef[] = [
+	{ name: 'Base_Joint', short: 'base', axis: [0, 0, 1] },
+	{ name: 'Shoulder_Roll', short: 'sh·roll', axis: [1, 0, 0] },
+	{ name: 'Shoulder_Yaw', short: 'sh·yaw', axis: [0, 0, 1] },
+	{ name: 'Elbow_Pitch', short: 'elbow', axis: [0, 0, 1] },
+	{ name: 'Wrist_Pitch', short: 'wr·pitch', axis: [0, 0, -1] },
+	{ name: 'Wrist_Yaw', short: 'wr·yaw', axis: [1, 0, 0] },
+	{ name: 'Wrist_Roll', short: 'wr·roll', axis: [0, 0, 1] },
+];
+
+// Rest pose (per-joint degrees, in JOINTS order): a compact folded configuration
+// the arm parks in, clear of the truss — the starting pose the player drives away
+// from to reach the goal.
+const REST_POSE_DEG: readonly number[] = [0, 90, -90, 60, 0, 60, 0];
+
+// Placement of NASA's public-domain "ISS (B)" GLB so the arm berths on the
+// station structure. The model is pure PBR geometry — no image textures — so it
+// adds no software-GL context-loss risk. Scale sizes the ~45-unit station to the
+// scene; position drops a structural face under the base LEE with the rest of the
+// station sprawling out of frame behind it.
+const ISS_SCALE = 2.5;
+const ISS_ROT: readonly [number, number, number] = [0, 0, 0]; // radians, XYZ
+const ISS_POS: readonly [number, number, number] = [0, 0, 24];
+
+// Fixed opening camera + orbit target: play opens on this framing and orbits
+// around this target.
+const CAM_POS: readonly [number, number, number] = [-0.65, 36.56, 35.6];
+const CAM_TARGET: readonly [number, number, number] = [-8.17, 38.17, 38.95];
+
+// Seating of the arm root (the whole arm hangs off this): Euler XYZ degrees +
+// position that berth the base LEE onto the MBS out on the truss.
+const ARM_BASE_ROT_DEG: readonly [number, number, number] = [16, 129, -156];
+const ARM_BASE_POS: readonly [number, number, number] = [-1, 31.3, 37.2];
+
+// Mobile Base System — the platform the SSRMS base LEE actually latches to (it
+// rides the Mobile Transporter along the truss). Sits just under the arm base so
+// the arm no longer floats. Converted from STL (see scripts/build-mbs.mjs); at
+// ~58 model-units, 0.12 scale gives roughly the real ~5.7 m platform.
+const MBS_SCALE = 0.12;
+const MBS_ROT: readonly [number, number, number] = [-Math.PI / 2, 0, Math.PI / 2];
+const MBS_POS: readonly [number, number, number] = [-2.7, 27, 35];
+
+// ---------------------------------------------------------------------------
+// Goal — one capture target, paired positionally with getDestinations() (a
+// single destination: HARMONY → Home). The goal is a GHOST END-EFFECTOR: a
+// translucent clone of the real EE posed at `pos`, oriented so its boresight
+// points along `facing`. "Dock to the shadow" — overlay the real EE onto the
+// ghost (reach its tip position AND aim its boresight along `facing`) to capture.
+//
+// pos/facing are FK-DERIVED, not hand-placed: the joint pose
+// (180, 15, −15, −100, 10, −95, 23)° was run through the runtime FK in the
+// seated frame and the resulting tip position + boresight recorded here — so the
+// goal is reachable by construction, with a basin inside the POS_TOL / ANG_TOL
+// window.
+// ---------------------------------------------------------------------------
+interface GoalDef {
+	pos: readonly [number, number, number];
+	/** world direction the EE boresight should point when docked to the ghost */
+	facing: readonly [number, number, number];
+}
+const GOALS: readonly GoalDef[] = [
+	{ pos: [-1.86, 38.11, 27.64], facing: [0.82, -0.57, 0.02] }, // HARMONY → Home
+];
+
+// Capture tolerances (forgiving) + the dwell that turns "in range" into a lock.
+// A goal locks when the EE tip is within POS_TOL of the ghost AND the boresight
+// is within ANG_TOL of the ghost's facing (roll is free).
+const POS_TOL = 1.5; // metres
+const ANG_TOL = 15 * DEG2RAD; // boresight/facing alignment cone
+const LOCK_TIME = 0.5; // seconds of continuous in-range to capture
+const UNLOCK_TIME = 0.35; // seconds to bleed the lock back off when out of range
+
+const clamp = (v: number, lo: number, hi: number): number =>
+	v < lo ? lo : v > hi ? hi : v;
+
+function webglAvailable(): boolean {
+	try {
+		const c = document.createElement('canvas');
+		return !!(
+			window.WebGLRenderingContext &&
+			(c.getContext('webgl') || c.getContext('experimental-webgl'))
+		);
+	} catch {
+		return false;
+	}
+}
+
+function reducedMotion(): boolean {
+	return (
+		typeof window.matchMedia === 'function' &&
+		window.matchMedia('(prefers-reduced-motion: reduce)').matches
+	);
+}
+
+// ===========================================================================
+// FALLBACK — no WebGL or prefers-reduced-motion. A static hero + the real
+// destination labels as focusable rows that still decode + navigate on activate
+// (reachable nav without the 3D scene). Uses the shared decode-links hook: labels
+// only pre-decode, hrefs written after an in-effect decode.
+// ===========================================================================
+function ManipulatorFallback({
+	dests,
+}: {
+	dests: readonly Destination[];
+}): JSX.Element {
+	const links = useDecodedLinks(dests);
+
+	return (
+		<div class="orbit orbit--fallback">
+			<div class="orbit__hero" aria-hidden="true">
+				<svg viewBox="0 0 200 120" width="200" height="120" fill="none">
+					<path
+						class="orbit__arm-stroke"
+						d="M20 104 L52 104 L52 60 L108 44 L150 62 L176 44"
+						stroke="currentColor"
+						stroke-width="3"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/>
+					<circle class="orbit__arm-joint" cx="52" cy="104" r="4" />
+					<circle class="orbit__arm-joint" cx="52" cy="60" r="4" />
+					<circle class="orbit__arm-joint" cx="108" cy="44" r="4" />
+					<circle class="orbit__arm-joint" cx="150" cy="62" r="4" />
+					<text class="orbit__arm-mark" x="92" y="30">
+						1KYC
+					</text>
+				</svg>
+			</div>
+			<p class="orbit__lead">manual dock — select a capture target</p>
+			<nav class="orbit__doors" aria-label="orbit targets">
+				<ul>
+					{links.map((item) => (
+						<li key={item.label}>
+							<a href={item.href || undefined}>{item.label}</a>
+						</li>
+					))}
+				</ul>
+			</nav>
+		</div>
+	);
+}
+
+// ===========================================================================
+// SCENE — the live Three.js manipulator.
+// ===========================================================================
+interface RuntimeGoal {
+	dest: Destination;
+	pos: THREE.Vector3;
+	facing: THREE.Vector3; // world direction the EE boresight should point
+	ghost: THREE.Object3D | null; // ghost EE group — built once the GLB loads
+	ghostMat: THREE.MeshStandardMaterial | null; // this ghost's own material
+	baseScale: number; // ghost's resting world scale (pulse/pop multiply this)
+	inRange: boolean;
+	progress: number; // 0..1 lock dwell
+	captured: boolean;
+	labelEl: HTMLDivElement | null;
+}
+
+function ManipulatorScene({
+	dests,
+}: {
+	dests: readonly Destination[];
+}): JSX.Element {
+	const [angles, setAngles] = useState<number[]>(() => [...REST_POSE_DEG]);
+	const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(
+		'loading',
+	);
+	const [toast, setToast] = useState<string | null>(null);
+
+	const mountRef = useRef<HTMLDivElement>(null);
+	const labelRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+
+	// Live joint angles in RADIANS — the render loop reads this every frame so the
+	// 3D stays smooth regardless of when Preact re-renders the sliders.
+	const jointRadRef = useRef<Float32Array>(
+		Float32Array.from(REST_POSE_DEG, (d) => d * DEG2RAD),
+	);
+
+	// Unmount-safety (mirrors WordSearch): bail an in-flight decode + clear the
+	// post-capture nav timer if the maze is switched mid-await.
+	const aliveRef = useRef(true);
+	const navTimerRef = useRef<number | null>(null);
+	const capturedRef = useRef(false);
+
+	// Auto-repeat timers for the ±1° steppers (press-and-hold).
+	const holdRef = useRef<{ timeout: number | null; interval: number | null }>({
+		timeout: null,
+		interval: null,
+	});
+
+	// Single write path for a joint: clamp to ±LIMIT_DEG, land on whole degrees,
+	// and keep the live radian ref (read by the render loop) in lock-step with
+	// the Preact `angles` state (drives the slider + numeric field). Every input
+	// path — slider, steppers, numeric entry — funnels through here.
+	const setJointDeg = (i: number, deg: number): void => {
+		const d = clamp(Math.round(deg), -LIMIT_DEG, LIMIT_DEG);
+		jointRadRef.current[i] = d * DEG2RAD;
+		setAngles((prev) => {
+			const next = [...prev];
+			next[i] = d;
+			return next;
+		});
+	};
+
+	// Nudge a joint by an exact delta. Reads the live radian ref (not the async
+	// `angles` state) so rapid auto-repeat ticks compose correctly.
+	const nudge = (i: number, deltaDeg: number): void =>
+		setJointDeg(i, jointRadRef.current[i]! / DEG2RAD + deltaDeg);
+
+	const stopHold = (): void => {
+		if (holdRef.current.timeout !== null) {
+			window.clearTimeout(holdRef.current.timeout);
+			holdRef.current.timeout = null;
+		}
+		if (holdRef.current.interval !== null) {
+			window.clearInterval(holdRef.current.interval);
+			holdRef.current.interval = null;
+		}
+	};
+
+	// Press-and-hold on a stepper: after a 300ms dwell, repeat ~every 60ms. The
+	// first single step is handled by the button's onClick (which also gives us
+	// keyboard Enter/Space for free), so a quick tap yields exactly one step.
+	const startHold = (i: number, deltaDeg: number): void => {
+		stopHold();
+		holdRef.current.timeout = window.setTimeout(() => {
+			holdRef.current.interval = window.setInterval(
+				() => nudge(i, deltaDeg),
+				60,
+			);
+		}, 300);
+	};
+
+	// Clear any dangling hold timers if the maze is switched mid-press.
+	useEffect(() => stopHold, []);
+
+	const onJoint = (
+		i: number,
+		e: TargetedInputEvent<HTMLInputElement>,
+	): void => {
+		setJointDeg(i, Number(e.currentTarget.value));
+	};
+
+	// Numeric field: commit on change/blur/Enter. Reject non-numeric input by
+	// restoring the current angle so the field never shows a stale/garbage value.
+	const onField = (
+		i: number,
+		e: TargetedEvent<HTMLInputElement>,
+	): void => {
+		const raw = Number(e.currentTarget.value);
+		if (!Number.isFinite(raw)) {
+			e.currentTarget.value = String(Math.round(angles[i]!));
+			return;
+		}
+		setJointDeg(i, raw);
+	};
+
+	const resetPose = (): void => {
+		for (let i = 0; i < JOINTS.length; i++) {
+			jointRadRef.current[i] = REST_POSE_DEG[i]! * DEG2RAD;
+		}
+		setAngles([...REST_POSE_DEG]);
+	};
+
+	useEffect(() => {
+		aliveRef.current = true;
+		const mount = mountRef.current;
+		if (!mount) return;
+
+		let localAlive = true;
+		let frame = 0;
+		// NB: every geometry/material below is parented under `scene`, so the
+		// teardown's disposeObject(scene) already reclaims them — no separate
+		// disposables list is needed. Track here only if you ever add something
+		// that is NOT a child of `scene`.
+
+		const BG = 0x0a0c10; // --bg
+
+		// --- renderer -------------------------------------------------------
+		const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+		renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+		renderer.setClearColor(BG, 1);
+		renderer.outputColorSpace = THREE.SRGBColorSpace;
+		mount.appendChild(renderer.domElement);
+		renderer.domElement.classList.add('orbit__canvas');
+
+		// --- scene / camera -------------------------------------------------
+		const scene = new THREE.Scene();
+		scene.background = new THREE.Color(BG);
+		scene.fog = new THREE.FogExp2(BG, 0.01);
+
+		// Seed straight from the fixed opening framing (re-applied once the GLB
+		// resolves, but this keeps the loading frames on the same view).
+		const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 500);
+		camera.position.set(CAM_POS[0], CAM_POS[1], CAM_POS[2]);
+
+		const controls = new OrbitControls(camera, renderer.domElement);
+		controls.target.set(CAM_TARGET[0], CAM_TARGET[1], CAM_TARGET[2]);
+		controls.enableDamping = true;
+		controls.dampingFactor = 0.12; // tighter tracking (less floaty glide)
+		controls.rotateSpeed = 1.3; // more orbit per drag — snappier to spin
+		controls.zoomSpeed = 1.3;
+		// Full navigation: left-drag / one-finger orbits, right-drag / two-finger
+		// pans, wheel / pinch zooms. On mobile the two-finger gesture covers both
+		// pan and zoom (no right button needed).
+		controls.enablePan = true;
+		controls.maxPolarAngle = Math.PI;
+		controls.mouseButtons = {
+			LEFT: THREE.MOUSE.ROTATE,
+			MIDDLE: THREE.MOUSE.DOLLY,
+			RIGHT: THREE.MOUSE.PAN,
+		};
+		controls.touches = {
+			ONE: THREE.TOUCH.ROTATE,
+			TWO: THREE.TOUCH.DOLLY_PAN,
+		};
+		controls.minDistance = 1;
+		controls.maxDistance = 120;
+
+		// --- lighting (key + fill + rim) ------------------------------------
+		const key = new THREE.DirectionalLight(0xfff4e0, 2.4);
+		key.position.set(8, 12, 6);
+		const fill = new THREE.HemisphereLight(0x9fb6d4, BG, 1.0);
+		const rim = new THREE.DirectionalLight(0x8fd0ff, 1.3);
+		rim.position.set(-9, 4, -8);
+		const amb = new THREE.AmbientLight(0x223044, 0.6);
+		scene.add(key, fill, rim, amb);
+
+		// --- starfield (harmonises with the moiré: cool greys + a cyan cast) -
+		const STAR_N = 900;
+		const starPos = new Float32Array(STAR_N * 3);
+		for (let i = 0; i < STAR_N; i++) {
+			// scatter on a shell well outside the reach envelope
+			const r = 40 + Math.random() * 60;
+			const t = Math.random() * Math.PI * 2;
+			const p = Math.acos(2 * Math.random() - 1);
+			starPos[i * 3] = r * Math.sin(p) * Math.cos(t);
+			starPos[i * 3 + 1] = r * Math.cos(p);
+			starPos[i * 3 + 2] = r * Math.sin(p) * Math.sin(t);
+		}
+		const starGeo = new THREE.BufferGeometry();
+		starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+		const starMat = new THREE.PointsMaterial({
+			color: 0x9fb4cc,
+			size: 0.35,
+			sizeAttenuation: true,
+			transparent: true,
+			opacity: 0.8,
+			depthWrite: false,
+			fog: false,
+		});
+		const stars = new THREE.Points(starGeo, starMat);
+		scene.add(stars);
+
+		// --- goals ----------------------------------------------------------
+		// The 3D ghost end-effectors need the loaded GLB (cloned geometry + the
+		// derived boresight), so here we only build the lightweight goal records;
+		// `buildGhosts` (run once the arm loads) clones + poses + tints each ghost.
+		const runtime: RuntimeGoal[] = GOALS.map((def, i) => ({
+			dest: dests[i]!,
+			pos: new THREE.Vector3(def.pos[0], def.pos[1], def.pos[2]),
+			facing: new THREE.Vector3(
+				def.facing[0],
+				def.facing[1],
+				def.facing[2],
+			).normalize(),
+			ghost: null,
+			ghostMat: null,
+			baseScale: 1,
+			inRange: false,
+			progress: 0,
+			captured: false,
+			labelEl: labelRefs.current[i] ?? null,
+		}));
+
+		// --- load the arm ---------------------------------------------------
+		const draco = new DRACOLoader();
+		draco.setDecoderPath('/draco/'); // self-hosted decoder (CSP/offline-safe)
+		const loader = new GLTFLoader();
+		loader.setDRACOLoader(draco);
+
+		const jointNodes: (THREE.Object3D | null)[] = JOINTS.map(() => null);
+		const baseQuat: THREE.Quaternion[] = JOINTS.map(
+			() => new THREE.Quaternion(),
+		);
+		// joint axes are constant — build the vectors once, not per frame
+		const axisVecs = JOINTS.map(
+			(j) => new THREE.Vector3(j.axis[0], j.axis[1], j.axis[2]),
+		);
+		let tip: THREE.Object3D | null = null;
+		const tipDirLocal = new THREE.Vector3(0, 0, 1);
+
+		// scratch objects reused every frame (no per-frame allocation)
+		const _q = new THREE.Quaternion();
+		const _tipPos = new THREE.Vector3();
+		const _wristQ = new THREE.Quaternion();
+		const _boresight = new THREE.Vector3();
+		const _proj = new THREE.Vector3();
+
+		loader.load(
+			'/models/canadarm2.glb',
+			(gltf: GLTF) => {
+				if (!localAlive) {
+					disposeObject(gltf.scene);
+					return;
+				}
+				const root = gltf.scene;
+				// Seat the arm on the station: armRoot carries the whole arm's world
+				// pose (ARM_BASE_ROT_DEG / ARM_BASE_POS) so its base LEE berths on the
+				// MBS out on the truss. Joint FK (below) runs on the child nodes and is
+				// unaffected; the ghost goal lives in this same wrapped world frame.
+				const armRoot = new THREE.Group();
+				armRoot.rotation.set(
+					ARM_BASE_ROT_DEG[0] * DEG2RAD,
+					ARM_BASE_ROT_DEG[1] * DEG2RAD,
+					ARM_BASE_ROT_DEG[2] * DEG2RAD,
+				);
+				armRoot.position.set(
+					ARM_BASE_POS[0],
+					ARM_BASE_POS[1],
+					ARM_BASE_POS[2],
+				);
+				armRoot.add(root);
+				scene.add(armRoot);
+
+				// Berth the arm on the ISS, not a Shuttle — Canadarm2 (SSRMS) lives on
+				// the station (Canadarm1 was the Shuttle arm). NASA's public-domain
+				// "ISS (B)" model, a Draco GLB loaded with the same decoder as the arm.
+				// Pure PBR geometry (no image textures); native materials kept for a
+				// realistic hull. Decorative — a load failure must not break play.
+				loader.load(
+					'/models/iss.glb',
+					(ig: GLTF) => {
+						if (!localAlive) {
+							disposeObject(ig.scene);
+							return;
+						}
+						const iss = ig.scene;
+						iss.scale.setScalar(ISS_SCALE);
+						iss.rotation.set(ISS_ROT[0], ISS_ROT[1], ISS_ROT[2]);
+						iss.position.set(ISS_POS[0], ISS_POS[1], ISS_POS[2]);
+						scene.add(iss);
+					},
+					undefined,
+					() => {
+						/* the station is decorative — a load failure must not break play */
+					},
+				);
+
+				// The Mobile Base System the arm actually latches to (STL → Draco GLB;
+				// see scripts/build-mbs.mjs). Seats just under the base LEE so the arm
+				// isn't floating. Decorative — a load failure must not break play.
+				loader.load(
+					'/models/mbs.glb',
+					(mg: GLTF) => {
+						if (!localAlive) {
+							disposeObject(mg.scene);
+							return;
+						}
+						const mbs = mg.scene;
+						mbs.scale.setScalar(MBS_SCALE);
+						mbs.rotation.set(MBS_ROT[0], MBS_ROT[1], MBS_ROT[2]);
+						mbs.position.set(MBS_POS[0], MBS_POS[1], MBS_POS[2]);
+						scene.add(mbs);
+					},
+					undefined,
+					() => {
+						/* the platform is decorative — a load failure must not break play */
+					},
+				);
+
+				JOINTS.forEach((j, i) => {
+					const node = root.getObjectByName(j.name) ?? null;
+					jointNodes[i] = node;
+					if (node) baseQuat[i]!.copy(node.quaternion);
+				});
+
+				// EE boresight: the TRUE pointing axis of the Wrist_Roll subtree.
+				// Measure the subtree's bounding box in the wrist's LOCAL frame, then
+				// take its DOMINANT (longest) axis as the barrel centreline — signed
+				// toward whichever end sits farther from the wrist origin. The old
+				// code aimed the ray at the farthest bbox CORNER, a diagonal ~10° off
+				// the barrel, so the boresight pointed where the arm visibly did not.
+				const wrist = jointNodes[6];
+				if (wrist) {
+					wrist.updateWorldMatrix(true, false);
+					const invWrist = new THREE.Matrix4()
+						.copy(wrist.matrixWorld)
+						.invert();
+					const localBox = new THREE.Box3();
+					const corner = new THREE.Vector3();
+					let found = false;
+					wrist.traverse((o) => {
+						const mesh = o as THREE.Mesh;
+						if (!mesh.isMesh || !mesh.geometry) return;
+						found = true;
+						mesh.updateWorldMatrix(true, false);
+						const g = mesh.geometry;
+						if (!g.boundingBox) g.computeBoundingBox();
+						const bb = g.boundingBox!;
+						for (const cx of [bb.min.x, bb.max.x])
+							for (const cy of [bb.min.y, bb.max.y])
+								for (const cz of [bb.min.z, bb.max.z]) {
+									corner
+										.set(cx, cy, cz)
+										.applyMatrix4(mesh.matrixWorld)
+										.applyMatrix4(invWrist);
+									localBox.expandByPoint(corner);
+								}
+					});
+					const tipLocal = new THREE.Vector3(0, 0, 1.5);
+					if (found) {
+						const mins = [localBox.min.x, localBox.min.y, localBox.min.z];
+						const maxs = [localBox.max.x, localBox.max.y, localBox.max.z];
+						// dominant axis = the longest local extent (the LEE barrel run)
+						let k = 0;
+						for (let a = 1; a < 3; a++) {
+							if (maxs[a]! - mins[a]! > maxs[k]! - mins[k]!) k = a;
+						}
+						// signed toward the end farther from the wrist origin: that end
+						// is the mouth of the end-effector, so the boresight exits down the arm
+						const farVal =
+							Math.abs(maxs[k]!) >= Math.abs(mins[k]!) ? maxs[k]! : mins[k]!;
+						tipDirLocal.set(0, 0, 0).setComponent(k, Math.sign(farVal) || 1);
+						// tip POSITION = box centre pushed out to that far end, so the
+						// boresight originates at the LEE mouth and runs straight down the axis
+						localBox.getCenter(tipLocal);
+						tipLocal.setComponent(k, farVal);
+					}
+					tipDirLocal.normalize();
+
+					// --- ghost end-effectors ------------------------------------
+					// One translucent green clone of the EE (Wrist_Roll) subtree per
+					// goal, posed at the goal. Cloned BEFORE the invisible `tip`
+					// empty is parented, so the ghost carries only real geometry.
+					// The clone SHARES geometry with the arm (disposed once, via the
+					// arm) but gets a NEW material we track + dispose ourselves.
+					//
+					// Posing: reset the clone to identity, then shift it by −tipLocal
+					// so the barrel-mouth point (the same point the capture test uses
+					// for the real EE) lands at the wrapping group's origin. The group
+					// is placed at the goal, rotated so tipDirLocal → facing, and given
+					// the wrist's WORLD scale so the ghost matches the real EE's on-
+					// screen size even if the rig bakes a scale into its ancestors.
+					const wristScale = new THREE.Vector3();
+					wrist.getWorldScale(wristScale);
+					for (const goal of runtime) {
+						const ghost = wrist.clone(true);
+						ghost.position.copy(tipLocal).multiplyScalar(-1);
+						ghost.quaternion.identity();
+						ghost.scale.set(1, 1, 1);
+						const gm = new THREE.MeshStandardMaterial({
+							color: 0x4ade80, // --accent green
+							emissive: 0x4ade80,
+							emissiveIntensity: 0.32,
+							transparent: true,
+							opacity: 0.35,
+							depthWrite: false,
+							roughness: 0.5,
+							metalness: 0.0,
+						});
+						ghost.traverse((o) => {
+							const mesh = o as THREE.Mesh;
+							if (mesh.isMesh) mesh.material = gm;
+						});
+						const grp = new THREE.Group();
+						grp.position.copy(goal.pos);
+						grp.quaternion.setFromUnitVectors(tipDirLocal, goal.facing);
+						grp.scale.copy(wristScale);
+						grp.add(ghost);
+						scene.add(grp);
+						goal.ghost = grp;
+						goal.ghostMat = gm;
+						goal.baseScale = wristScale.x || 1;
+					}
+
+					tip = new THREE.Object3D();
+					tip.position.copy(tipLocal);
+					wrist.add(tip);
+				}
+
+				// --- settle the camera on the captured initial framing ------------
+				// Play opens on the hand-tuned CAM_POS looking at CAM_TARGET. Orbit is
+				// bounded around that distance so the player stays near the arm.
+				scene.updateMatrixWorld(true);
+				const camPos = new THREE.Vector3(CAM_POS[0], CAM_POS[1], CAM_POS[2]);
+				const camTgt = new THREE.Vector3(
+					CAM_TARGET[0],
+					CAM_TARGET[1],
+					CAM_TARGET[2],
+				);
+				const camDist = camPos.distanceTo(camTgt);
+				controls.target.copy(camTgt);
+				camera.position.copy(camPos);
+				// generous play range: pull right in close to the EE, or back out far
+				// enough to take in the whole station as context
+				controls.minDistance = 1;
+				controls.maxDistance = camDist * 14;
+				controls.update();
+
+				setStatus('ready');
+			},
+			undefined,
+			() => {
+				if (localAlive) setStatus('error');
+			},
+		);
+
+		// --- capture --------------------------------------------------------
+		const capture = (t: RuntimeGoal): void => {
+			if (capturedRef.current) return;
+			capturedRef.current = true;
+			t.captured = true;
+			t.labelEl?.classList.add('orbit__label--locked');
+			// burst: flip the ghost from green to the cyan "done" cue, solidify it
+			// and pop its scale (the per-frame loop leaves captured ghosts alone).
+			if (t.ghostMat) {
+				t.ghostMat.color.set(0x38bdf8);
+				t.ghostMat.emissive.set(0x38bdf8);
+				t.ghostMat.emissiveIntensity = 1.6;
+				t.ghostMat.opacity = 0.7;
+			}
+			t.ghost?.scale.setScalar(t.baseScale * 1.4);
+
+			void decodePath(t.dest.cipher, t.dest.key)
+				.then((dest) => {
+					if (!aliveRef.current) return; // maze switched mid-await
+					setToast(t.dest.label.toLowerCase());
+					navTimerRef.current = window.setTimeout(() => {
+						window.location.href = dest;
+					}, 700);
+				})
+				.catch(() => {
+					// A failed decode must not strand the lock: fully release it so the
+					// target un-freezes and can be re-acquired rather than dead. Clearing
+					// only the flags would leave progress at 1 and the cyan "locked"
+					// visual, so if still in range capture() would re-fire every frame.
+					capturedRef.current = false;
+					t.captured = false;
+					t.progress = 0;
+					t.labelEl?.classList.remove('orbit__label--locked');
+					// restore the ghost to its idle green (the per-frame loop only
+					// drives opacity/scale/intensity, never color/emissive).
+					if (t.ghostMat) {
+						t.ghostMat.color.set(0x4ade80);
+						t.ghostMat.emissive.set(0x4ade80);
+						t.ghostMat.emissiveIntensity = 0.32;
+						t.ghostMat.opacity = 0.35;
+					}
+					t.ghost?.scale.setScalar(t.baseScale);
+				});
+		};
+
+		// --- resize ---------------------------------------------------------
+		const resize = (): void => {
+			const w = mount.clientWidth || 1;
+			const h = mount.clientHeight || 1;
+			renderer.setSize(w, h, false);
+			camera.aspect = w / h;
+			camera.updateProjectionMatrix();
+		};
+		resize();
+		const ro = new ResizeObserver(resize);
+		ro.observe(mount);
+
+		// --- render loop ----------------------------------------------------
+		const clock = new THREE.Clock();
+		const tick = (): void => {
+			frame = requestAnimationFrame(tick);
+			const dt = Math.min(clock.getDelta(), 0.05);
+			const t = clock.elapsedTime;
+
+			// FK: rotate each joint about its LOCAL axis, layered on its base pose
+			for (let i = 0; i < JOINTS.length; i++) {
+				const node = jointNodes[i];
+				if (!node) continue;
+				_q.setFromAxisAngle(axisVecs[i]!, jointRadRef.current[i]!);
+				node.quaternion.copy(baseQuat[i]!).multiply(_q);
+			}
+
+			stars.rotation.y += dt * 0.006;
+
+			// end-effector world transform + boresight
+			let haveTip = false;
+			if (tip) {
+				const wrist = jointNodes[6];
+				tip.updateWorldMatrix(true, false);
+				tip.getWorldPosition(_tipPos);
+				if (wrist) {
+					// tipDirLocal is unit and getWorldQuaternion returns a unit
+					// quaternion, so the rotated boresight is already unit-length
+					wrist.getWorldQuaternion(_wristQ);
+					_boresight.copy(tipDirLocal).applyQuaternion(_wristQ);
+					haveTip = true;
+				}
+			}
+
+			// per-goal: in-range test (tip position AND boresight/facing), lock
+			// dwell, capture, ghost feedback, label projection.
+			for (const rt of runtime) {
+				if (!rt.captured) {
+					let inRange = false;
+					if (haveTip) {
+						const dist = _tipPos.distanceTo(rt.pos);
+						const aimAng = _boresight.angleTo(rt.facing);
+						inRange = dist < POS_TOL && aimAng < ANG_TOL;
+					}
+					rt.inRange = inRange;
+					rt.progress = clamp(
+						rt.progress +
+							(inRange ? dt / LOCK_TIME : -dt / UNLOCK_TIME),
+						0,
+						1,
+					);
+					if (rt.progress >= 1) capture(rt);
+				}
+
+				// ghost feedback: idle = faint green; in range = brighter + a soft
+				// opacity/scale pulse; captured = solid cyan (set once in capture()).
+				const gm = rt.ghostMat;
+				if (gm && !rt.captured) {
+					if (rt.inRange) {
+						const s = 0.5 + 0.5 * Math.sin(t * 10);
+						gm.opacity = 0.5 + 0.15 * s;
+						gm.emissiveIntensity = 0.7 + 0.4 * s;
+					} else {
+						gm.opacity = 0.35;
+						gm.emissiveIntensity = 0.32;
+					}
+				}
+				if (rt.ghost && !rt.captured) {
+					rt.ghost.scale.setScalar(
+						rt.baseScale * (rt.inRange ? 1 + 0.04 * Math.sin(t * 10) : 1),
+					);
+				}
+
+				// project the label to screen space (imperative — no re-render)
+				const el = rt.labelEl;
+				if (el) {
+					_proj.copy(rt.pos).project(camera);
+					const behind = _proj.z > 1;
+					if (behind) {
+						el.style.opacity = '0';
+					} else {
+						const x = (_proj.x * 0.5 + 0.5) * mount.clientWidth;
+						// lift the label clear of the marker glyph so text never
+						// sits on top of the circle / the bright arm behind it
+						const y = (-_proj.y * 0.5 + 0.5) * mount.clientHeight - 20;
+						el.style.transform = `translate(-50%,-50%) translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`;
+						el.style.setProperty('--lock', rt.progress.toFixed(3));
+						el.style.opacity = '1';
+						el.classList.toggle('orbit__label--range', rt.inRange && !rt.captured);
+					}
+				}
+			}
+
+			controls.update();
+			renderer.render(scene, camera);
+		};
+		tick();
+
+		// --- teardown -------------------------------------------------------
+		return () => {
+			localAlive = false;
+			aliveRef.current = false;
+			if (navTimerRef.current !== null) window.clearTimeout(navTimerRef.current);
+			cancelAnimationFrame(frame);
+			ro.disconnect();
+			controls.dispose();
+			// Ghost EEs share geometry with the arm, so pull them out of the scene
+			// first (disposeObject would otherwise dispose that shared geometry a
+			// second time) and dispose their own materials explicitly. The arm root
+			// still in `scene` disposes the shared geometry exactly once.
+			for (const rt of runtime) {
+				if (rt.ghost) scene.remove(rt.ghost);
+				rt.ghostMat?.dispose();
+			}
+			disposeObject(scene); // reclaims all scene-parented geo/materials/textures
+			draco.dispose();
+			renderer.dispose();
+			renderer.forceContextLoss();
+			if (renderer.domElement.parentNode) {
+				renderer.domElement.parentNode.removeChild(renderer.domElement);
+			}
+		};
+	}, []);
+
+	return (
+		<div class="orbit">
+			<div class="orbit__stage">
+				<div ref={mountRef} class="orbit__viewport" />
+				{GOALS.map((_def, i) => (
+					<div
+						key={dests[i]?.label ?? i}
+						class="orbit__label orbit__label--goal"
+						ref={(el) => {
+							labelRefs.current[i] = el;
+						}}
+					>
+						<span class="orbit__label-ring" aria-hidden="true" />
+						<span class="orbit__label-text">
+							{(dests[i]?.label ?? '').toLowerCase()}
+						</span>
+					</div>
+				))}
+				{status !== 'ready' && (
+					<p class="orbit__overlay">
+						{status === 'error' ? 'telemetry lost — try another' : 'acquiring…'}
+					</p>
+				)}
+				{toast && <p class="orbit__toast">{toast}</p>}
+			</div>
+
+			<div class="orbit__console" role="group" aria-label="arm joints">
+				{JOINTS.map((j, i) => (
+					<div key={j.name} class="orbit__knob">
+						<span class="orbit__knob-name">{j.short}</span>
+						<button
+							type="button"
+							class="orbit__step"
+							aria-label={`${j.short} plus 1 degree`}
+							onPointerDown={() => startHold(i, +1)}
+							onPointerUp={stopHold}
+							onPointerLeave={stopHold}
+							onPointerCancel={stopHold}
+							onClick={() => nudge(i, +1)}
+						>
+							+
+						</button>
+						<input
+							class="orbit__knob-input"
+							type="range"
+							min={-LIMIT_DEG}
+							max={LIMIT_DEG}
+							step={1}
+							value={angles[i]}
+							aria-label={`${j.short} joint angle`}
+							onInput={(e) => onJoint(i, e)}
+						/>
+						<button
+							type="button"
+							class="orbit__step"
+							aria-label={`${j.short} minus 1 degree`}
+							onPointerDown={() => startHold(i, -1)}
+							onPointerUp={stopHold}
+							onPointerLeave={stopHold}
+							onPointerCancel={stopHold}
+							onClick={() => nudge(i, -1)}
+						>
+							−
+						</button>
+						<input
+							class="orbit__knob-field"
+							type="number"
+							min={-LIMIT_DEG}
+							max={LIMIT_DEG}
+							step={1}
+							value={Math.round(angles[i]!)}
+							aria-label={`${j.short} joint angle in degrees`}
+							onChange={(e) => onField(i, e)}
+						/>
+					</div>
+				))}
+				<button type="button" class="orbit__reset" onClick={resetPose}>
+					reset
+				</button>
+			</div>
+		</div>
+	);
+}
+
+/** Recursively dispose geometries, materials and their textures under a root. */
+function disposeObject(root: THREE.Object3D): void {
+	root.traverse((o) => {
+		const mesh = o as THREE.Mesh & { isPoints?: boolean };
+		const geo = (mesh as { geometry?: THREE.BufferGeometry }).geometry;
+		if (geo && typeof geo.dispose === 'function') geo.dispose();
+		const mat = (mesh as { material?: THREE.Material | THREE.Material[] })
+			.material;
+		if (!mat) return;
+		const mats = Array.isArray(mat) ? mat : [mat];
+		for (const m of mats) {
+			for (const key in m) {
+				const val = (m as unknown as Record<string, unknown>)[key];
+				if (val && (val as { isTexture?: boolean }).isTexture) {
+					(val as THREE.Texture).dispose();
+				}
+			}
+			m.dispose();
+		}
+	});
+}
+
+// ===========================================================================
+export default function Manipulator(): JSX.Element {
+	const dests = getDestinations(MAZE_ID);
+	// Decide once: no WebGL or reduced-motion routes to the reachable fallback.
+	const [use3d] = useState<boolean>(() => webglAvailable() && !reducedMotion());
+	return use3d ? (
+		<ManipulatorScene dests={dests} />
+	) : (
+		<ManipulatorFallback dests={dests} />
+	);
+}

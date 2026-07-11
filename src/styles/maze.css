@@ -680,6 +680,368 @@ body {
 }
 
 /* -----------------------------------------------------------------------------
+   7b. MANIPULATOR ("orbit") — the 7-DOF Canadarm2 maze
+   A Three.js stage (the WebGL canvas fills .orbit__viewport) topped with
+   imperatively-positioned target labels, a status/toast line, and a console of
+   seven FK joint sliders. Every goal is a translucent green ghost end-effector
+   ("dock to the shadow"); colours ride the existing tokens: green = ghost /
+   in-range, cyan (--accent-2) = a captured "done" goal, matching the
+   word-search selection→found language. When WebGL is unavailable or the visitor
+   asks for reduced motion, .orbit--fallback renders a stroked-arm hero + the real
+   destination rows instead (reachable nav without the scene).
+   --------------------------------------------------------------------------- */
+.orbit {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--space-3);
+	width: 100%;
+	max-width: 760px;
+}
+
+.orbit__stage {
+	position: relative;
+	width: min(90vw, 720px);
+	height: min(60vh, 460px);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	overflow: hidden;
+	background: var(--bg);
+	box-shadow:
+		inset 0 0 0 1px color-mix(in srgb, var(--accent-2) 4%, transparent),
+		0 20px 60px -30px #000;
+}
+
+.orbit__viewport {
+	position: absolute;
+	inset: 0;
+	touch-action: none; /* OrbitControls owns the drag gesture */
+}
+.orbit__canvas { display: block; }
+
+/* target labels — absolutely placed, driven by transform each frame (JS writes
+   the translate + a --lock 0..1 custom property; no per-frame Preact render). */
+.orbit__label {
+	position: absolute;
+	top: 0;
+	left: 0;
+	--lock: 0;
+	display: flex;
+	align-items: center;
+	gap: 0.55em;
+	padding: 0.15em 0.5em;
+	font-family: var(--font-mono);
+	font-size: var(--fs-base);
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	/* bright white, with a strong dark backing halo so the bigger text stays
+	   legible when it crosses the bright white arm */
+	color: #fff;
+	text-shadow:
+		0 0 8px var(--bg),
+		0 0 4px var(--bg),
+		0 1px 2px var(--bg);
+	white-space: nowrap;
+	pointer-events: none;
+	opacity: 0;
+	transition: color var(--dur) var(--ease);
+	will-change: transform, opacity;
+}
+.orbit__label-text { text-transform: lowercase; }
+
+/* the lock reticle: a ring whose conic sweep fills with --lock as the dwell
+   builds; recolours to the target's cue (green ghost / cyan captured). */
+.orbit__label-ring {
+	width: 0.85em;
+	height: 0.85em;
+	border-radius: 50%;
+	border: 1px solid color-mix(in srgb, var(--muted) 70%, transparent);
+	background:
+		conic-gradient(
+			var(--ring, var(--accent)) calc(var(--lock) * 360deg),
+			transparent 0
+		);
+	flex: none;
+}
+/* every goal is a ghost end-effector: green lock ring, cyan once captured */
+.orbit__label--goal { --ring: var(--accent); }
+
+/* in range: label wakes to its cue colour and the reticle glows */
+.orbit__label--range { color: var(--accent); }
+.orbit__label--range .orbit__label-ring {
+	box-shadow: 0 0 8px -1px var(--ring, var(--accent));
+}
+
+/* captured: locks to cyan "done" and stays lit */
+.orbit__label--locked {
+	color: var(--accent-2);
+}
+.orbit__label--locked .orbit__label-ring {
+	--lock: 1;
+	--ring: var(--accent-2);
+	box-shadow: 0 0 10px -1px var(--accent-2);
+}
+
+/* status ("acquiring…" / error) + capture toast, centred over the stage */
+.orbit__overlay {
+	position: absolute;
+	inset: 0;
+	margin: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: var(--fs-xs);
+	letter-spacing: 0.08em;
+	color: var(--muted);
+	pointer-events: none;
+}
+.orbit__toast {
+	position: absolute;
+	left: 50%;
+	bottom: var(--space-3);
+	transform: translateX(-50%);
+	margin: 0;
+	font-size: var(--fs-sm);
+	letter-spacing: 0.1em;
+	color: var(--accent-2);
+	pointer-events: none;
+}
+.orbit__toast::before { content: "> "; color: var(--muted); }
+
+/* the FK console — a mobile-first horizontally-scrolling strip of joint knobs */
+.orbit__console {
+	display: flex;
+	gap: var(--space-3);
+	align-items: flex-end;
+	justify-content: safe center;
+	width: min(90vw, 720px);
+	padding: var(--space-2) var(--space-1);
+	overflow-x: auto;
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+	touch-action: pan-x;
+}
+.orbit__console::-webkit-scrollbar { display: none; }
+
+.orbit__knob {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--space-1);
+	flex: none;
+}
+.orbit__knob-name {
+	font-size: var(--fs-xs);
+	letter-spacing: 0.06em;
+	color: var(--muted);
+	text-transform: uppercase;
+}
+/* ±1° steppers — ≥32px touch targets flanking the slider */
+.orbit__step {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2rem;
+	height: 2rem;
+	padding: 0;
+	font-family: var(--font-mono);
+	font-size: var(--fs-sm);
+	line-height: 1;
+	color: var(--muted);
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	cursor: pointer;
+	user-select: none;
+	touch-action: none; /* hold-to-repeat without the strip scrolling under it */
+	transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.orbit__step:hover,
+.orbit__step:focus-visible {
+	color: var(--accent);
+	border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+	box-shadow: 0 0 8px -3px var(--glow);
+	outline: none;
+}
+.orbit__step:active {
+	color: var(--accent-2);
+}
+
+/* editable exact-degree field (replaces the read-only value) */
+.orbit__knob-field {
+	width: 3.1rem;
+	padding: 0.15rem 0.2rem;
+	font-family: var(--font-mono);
+	font-size: var(--fs-xs);
+	text-align: center;
+	color: var(--text);
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	font-variant-numeric: tabular-nums;
+	appearance: textfield;
+	-moz-appearance: textfield;
+}
+.orbit__knob-field::-webkit-outer-spin-button,
+.orbit__knob-field::-webkit-inner-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
+}
+.orbit__knob-field:focus-visible {
+	outline: none;
+	border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-2) 30%, transparent);
+}
+
+/* range styled as a compact vertical arc-knob track */
+.orbit__knob-input {
+	appearance: none;
+	-webkit-appearance: none;
+	writing-mode: vertical-lr;
+	direction: rtl; /* up = increase */
+	width: 0.5rem;
+	height: 5rem;
+	background: transparent;
+	cursor: ns-resize;
+	touch-action: none;
+}
+.orbit__knob-input::-webkit-slider-runnable-track {
+	width: 0.28rem;
+	height: 100%;
+	border-radius: 2px;
+	background: linear-gradient(
+		to top,
+		var(--accent-soft),
+		color-mix(in srgb, var(--accent-2) 14%, transparent)
+	);
+	border: 1px solid var(--border);
+}
+.orbit__knob-input::-moz-range-track {
+	width: 0.28rem;
+	height: 100%;
+	border-radius: 2px;
+	background: var(--accent-soft);
+	border: 1px solid var(--border);
+}
+.orbit__knob-input::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	width: 1rem;
+	height: 0.55rem;
+	margin-left: -0.36rem;
+	border-radius: 3px;
+	background: var(--accent);
+	box-shadow: 0 0 8px -2px var(--glow);
+}
+.orbit__knob-input::-moz-range-thumb {
+	width: 1rem;
+	height: 0.55rem;
+	border: none;
+	border-radius: 3px;
+	background: var(--accent);
+	box-shadow: 0 0 8px -2px var(--glow);
+}
+.orbit__knob-input:focus-visible { outline: none; }
+.orbit__knob-input:focus-visible::-webkit-slider-thumb {
+	box-shadow: 0 0 0 2px var(--accent-2);
+}
+.orbit__knob-input:focus-visible::-moz-range-thumb {
+	box-shadow: 0 0 0 2px var(--accent-2);
+}
+
+.orbit__reset {
+	align-self: center;
+	flex: none;
+	margin-left: var(--space-2);
+	padding: var(--space-1) var(--space-3);
+	font-family: var(--font-mono);
+	font-size: var(--fs-xs);
+	letter-spacing: 0.08em;
+	color: var(--muted);
+	background: none;
+	border: 1px dashed var(--border);
+	border-radius: var(--radius);
+	cursor: pointer;
+	transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.orbit__reset:hover,
+.orbit__reset:focus-visible {
+	color: var(--accent);
+	border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+	outline: none;
+}
+
+/* Narrow phones (≤380px): a single scrolling row runs WR·ROLL + reset off the
+   right edge. Wrap the seven knobs onto two rows and drop reset to its own row
+   so the whole console fits the viewport — nothing scrolls off horizontally. */
+@media (max-width: 380px) {
+	.orbit__console {
+		flex-wrap: wrap;
+		justify-content: center;
+		overflow-x: hidden;
+		gap: var(--space-2);
+		padding-inline: 0;
+	}
+	.orbit__knob-input {
+		height: 4rem;
+	}
+	.orbit__knob-field {
+		width: 2.9rem;
+	}
+	.orbit__reset {
+		margin-left: 0;
+		flex-basis: 100%;
+	}
+}
+
+/* ---- fallback (no WebGL / reduced motion): reachable destination rows ---- */
+.orbit--fallback {
+	max-width: 34ch;
+	text-align: center;
+	gap: var(--space-4);
+}
+.orbit__hero {
+	color: var(--muted);
+	opacity: 0.9;
+}
+.orbit__arm-stroke { color: var(--muted); }
+.orbit__arm-joint { fill: var(--accent); }
+.orbit__arm-mark {
+	fill: var(--brand);
+	font-family: var(--font-mono);
+	font-size: 13px;
+	font-weight: 600;
+	letter-spacing: 0.12em;
+	text-anchor: middle;
+}
+.orbit__lead {
+	margin: 0;
+	font-size: var(--fs-xs);
+	letter-spacing: 0.04em;
+	color: var(--muted);
+}
+.orbit__doors { width: 100%; }
+.orbit__doors ul { list-style: none; margin: 0; padding: 0; }
+.orbit__doors li { margin: 0; }
+.orbit__doors a {
+	display: block;
+	padding: var(--space-2);
+	font-family: var(--font-mono);
+	font-size: var(--fs-sm);
+	letter-spacing: 0.1em;
+	text-transform: lowercase;
+	text-decoration: none;
+	color: var(--text);
+}
+.orbit__doors a::before { content: "◇ "; color: var(--muted); }
+.orbit__doors a:hover,
+.orbit__doors a:focus-visible {
+	color: var(--accent);
+	outline: none;
+}
+.orbit__doors a:hover::before,
+.orbit__doors a:focus-visible::before { color: var(--accent); }
+
+/* -----------------------------------------------------------------------------
    8. ACCESSIBILITY — reduced motion
    Kill the caret blink, glow pulses, and slide transitions for users who ask.
    States still change (color/contrast), just without animation.

@@ -19,6 +19,7 @@ export interface MazeDef {
 
 export const MAZES: readonly MazeDef[] = [
 	{ id: 'wordsearch', label: 'word search', kind: 'real' },
+	{ id: 'manipulator', label: 'manipulator', kind: 'real' },
 	{ id: 'backdoors', label: 'backdoors', kind: 'fallback' },
 ];
 
@@ -36,6 +37,7 @@ export const MAZE_LOADERS: Record<
 	() => Promise<{ default: FunctionComponent }>
 > = {
 	wordsearch: () => import('../components/WordSearch'),
+	manipulator: () => import('../components/Manipulator'),
 	backdoors: () => import('../components/Backdoors'),
 };
 
