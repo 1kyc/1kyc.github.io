@@ -835,6 +835,8 @@ body {
 	letter-spacing: 0.06em;
 	color: var(--muted);
 	text-transform: uppercase;
+	user-select: none;
+	-webkit-user-select: none; /* iOS ignores the unprefixed form — stop tap-select */
 }
 /* ±1° steppers — ≥32px touch targets flanking the slider */
 .orbit__step {
@@ -853,6 +855,8 @@ body {
 	border-radius: var(--radius);
 	cursor: pointer;
 	user-select: none;
+	-webkit-user-select: none; /* iOS Safari ignores the unprefixed rule */
+	-webkit-touch-callout: none; /* no long-press selection/callout on the glyph */
 	touch-action: none; /* hold-to-repeat without the strip scrolling under it */
 	transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
@@ -961,6 +965,9 @@ body {
 	border: 1px dashed var(--border);
 	border-radius: var(--radius);
 	cursor: pointer;
+	user-select: none;
+	-webkit-user-select: none; /* iOS Safari ignores the unprefixed rule */
+	-webkit-touch-callout: none;
 	transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
 .orbit__reset:hover,
