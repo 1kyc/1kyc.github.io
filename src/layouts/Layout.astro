@@ -16,11 +16,10 @@ const { title } = Astro.props;
 		<title>{title}</title>
 	</head>
 	<body>
-		{/* Accepted trade-off: these plaintext path links live only on the
-		    content pages + 404 (never on the crawlable landing, which hides paths
-		    via the maze). Once a visitor has escaped the maze onto a real page,
-		    cross-page nav is intentionally in the clear. Keep the maze itself the
-		    only guard on the root. */}
+		{/* The maze guards ONLY the landing/root — it isolates that one page.
+		    Content pages (the blog especially) are meant to be openly
+		    discoverable and indexable, so their nav is plaintext by design.
+		    Keep this in the clear; only the root is hidden behind the maze. */}
 		<nav>
 			<a href="/home">Home</a>
 			<a href="/blog">Blog</a>
