@@ -22,3 +22,6 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# Claude Code per-user local settings (MCP approvals, etc.)
+.claude/settings.local.json
