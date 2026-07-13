@@ -47,11 +47,32 @@ const REST_POSE_DEG: readonly number[] = [0, 90, -90, 60, 0, 60, 0];
 const ISS_SCALE = 2.5;
 const ISS_ROT: readonly [number, number, number] = [0, 0, 0]; // radians, XYZ
 const ISS_POS: readonly [number, number, number] = [0, 0, 24];
+// The "ISS (B)" GLB bundles a stray truss/cylinder cluster (bendedtru1-3,
+// bendedtrus, pCylinder1/2/8) sitting ~64 world-units above the berth — after
+// ISS_SCALE/ISS_POS it lands at world-Y ≈ 102, while the coherent station body
+// (polySurfa*) tops out near 64. Meant to be out of frame, it leaks into wide /
+// top-down views where fog blurs it into hazy floating blobs, so we hide any
+// sub-mesh whose whole bounding box clears this cutoff (safely in the gap).
+const ISS_CLIP_Y = 80; // world-Y; between station top (~64) and cluster (~102)
 
 // Fixed opening camera + orbit target: play opens on this framing and orbits
 // around this target.
 const CAM_POS: readonly [number, number, number] = [-0.65, 36.56, 35.6];
 const CAM_TARGET: readonly [number, number, number] = [-8.17, 38.17, 38.95];
+// World-space envelope of the visible content (arm reach + MBS + the whole
+// station body). The orbit/pan target is confined to this box so the player can
+// pan and zoom-to-cursor anywhere over the scene to inspect the MBS/ISS, while
+// the target still can't drift off into the empty void beyond the models (the
+// original reason for the clamp). Tunable — these are absolute world coords tied
+// to ISS_SCALE/ISS_POS/ARM_BASE_POS below; re-check them if a model moves.
+const TARGET_MIN: readonly [number, number, number] = [-22, -14, -37];
+const TARGET_MAX: readonly [number, number, number] = [20, 68, 84];
+
+// Portrait/narrow stages show a thinner horizontal slice at the fixed 42° FOV, so
+// the opening frame feels too close on phones. Dolly the START position back along
+// the view direction by this factor there (≈√2 → roughly 2× the visible area).
+// Opening framing only — the player can orbit/zoom freely afterwards.
+const PORTRAIT_DOLLY = 1.4;
 
 // Seating of the arm root (the whole arm hangs off this): Euler XYZ degrees +
 // position that berth the base LEE onto the MBS out on the truss.
@@ -326,12 +347,16 @@ function ManipulatorScene({
 		controls.enableDamping = true;
 		controls.dampingFactor = 0.12; // tighter tracking (less floaty glide)
 		controls.rotateSpeed = 1.3; // more orbit per drag — snappier to spin
-		controls.zoomSpeed = 1.3;
 		// Full navigation: left-drag / one-finger orbits, right-drag / two-finger
 		// pans, wheel / pinch zooms. On mobile the two-finger gesture covers both
 		// pan and zoom (no right button needed).
 		controls.enablePan = true;
-		controls.maxPolarAngle = Math.PI;
+		// Keep the orbit just shy of both poles: at the exact poles the azimuth
+		// direction flips, which reads as the view "suddenly spinning the other
+		// way". A small clamp preserves a generous range while dodging the
+		// singularities.
+		controls.minPolarAngle = 0.08 * Math.PI;
+		controls.maxPolarAngle = Math.PI - 0.08 * Math.PI;
 		controls.mouseButtons = {
 			LEFT: THREE.MOUSE.ROTATE,
 			MIDDLE: THREE.MOUSE.DOLLY,
@@ -341,8 +366,18 @@ function ManipulatorScene({
 			ONE: THREE.TOUCH.ROTATE,
 			TWO: THREE.TOUCH.DOLLY_PAN,
 		};
-		controls.minDistance = 1;
+		controls.minDistance = 0.1;
 		controls.maxDistance = 120;
+		// Dolly toward the pointer/pinch, not the fixed pivot, so the player can
+		// zoom right into the arm/EE/goal even though the opening orbit target
+		// sits off to the side in near-empty space.
+		// Zoom is handled by a custom raycast dolly (`applyZoom` below), NOT the
+		// stock OrbitControls wheel/pinch. OrbitControls only ever dollies toward
+		// the orbit target, which here floats in empty space off the content — so
+		// its zoom budget (== the camera→target radius) ran out long before the
+		// camera reached the station/MBS, capping zoom-in. We drive zoom toward the
+		// real geometry under the pointer instead.
+		controls.enableZoom = false;
 
 		// --- lighting (key + fill + rim) ------------------------------------
 		const key = new THREE.DirectionalLight(0xfff4e0, 2.4);
@@ -423,6 +458,168 @@ function ManipulatorScene({
 		const _wristQ = new THREE.Quaternion();
 		const _boresight = new THREE.Vector3();
 		const _proj = new THREE.Vector3();
+		const targetMinV = new THREE.Vector3(
+			TARGET_MIN[0],
+			TARGET_MIN[1],
+			TARGET_MIN[2],
+		);
+		const targetMaxV = new THREE.Vector3(
+			TARGET_MAX[0],
+			TARGET_MAX[1],
+			TARGET_MAX[2],
+		);
+
+		// --- custom raycast zoom -------------------------------------------------
+		// `pickables` is the real, solid geometry the zoom aims at (arm, station,
+		// platform) — pushed as each model loads. Stars, ghosts and labels are left
+		// out so zoom never latches onto a decoration.
+		//
+		// How it works: the stock OrbitControls dolly can only crawl toward the
+		// orbit target (which floats in empty space here), so its reach is capped
+		// at the small camera→target radius. Instead we DOLLY TOWARD A FIXED WORLD
+		// POINT under the pointer: raycast once when the gesture starts to lock the
+		// focus point, then each step translate BOTH camera and target the same
+		// fraction of the remaining gap toward it. Translating both keeps the view
+		// direction fixed (no swing) and, because we always move a fraction of what
+		// REMAINS, the camera approaches the focus asymptotically and never caps.
+		// NB: `zoomToCursor` does NOT fix the cap (verified in-browser) — its dolly
+		// down the ray still sums to the camera→target radius — so don't "simplify"
+		// this back to the built-in dolly.
+		const pickables: THREE.Object3D[] = [];
+		const raycaster = new THREE.Raycaster();
+		const _ndc = new THREE.Vector2();
+		const _focus = new THREE.Vector3(); // locked world point we dolly toward
+		const _zdir = new THREE.Vector3();
+		const _off = new THREE.Vector3();
+		let focusValid = false; // false → re-acquire the focus on the next step
+		const MIN_GAP = 0.4; // closest the camera may sit to the aimed surface
+
+		// Lock the focus world point under (cx,cy): the nearest solid hit, or — if
+		// the pointer is over empty space — a point along the ray at the current
+		// pivot depth (so empty-space zoom still dives that direction).
+		const acquireFocus = (cx: number, cy: number): void => {
+			const rect = renderer.domElement.getBoundingClientRect();
+			if (!rect.width || !rect.height) return;
+			_ndc.x = ((cx - rect.left) / rect.width) * 2 - 1;
+			_ndc.y = -((cy - rect.top) / rect.height) * 2 + 1;
+			raycaster.setFromCamera(_ndc, camera);
+			// intersectObjects([]) is a no-op, so no length guard is needed — an
+			// empty pickables list (zoom before models load) falls through to the
+			// ray-depth fallback below.
+			let hit: THREE.Vector3 | null = null;
+			for (const h of raycaster.intersectObjects(pickables, true)) {
+				if (h.object.visible) {
+					hit = h.point;
+					break;
+				}
+			}
+			if (hit) {
+				_focus.copy(hit);
+			} else {
+				_focus
+					.copy(raycaster.ray.direction)
+					.multiplyScalar(camera.position.distanceTo(controls.target))
+					.add(camera.position);
+			}
+			focusValid = true;
+		};
+
+		// One dolly step toward (zoomIn) / away from the locked focus. `intensity`
+		// is the fraction of the remaining gap to move, so steps converge on the
+		// focus without ever capping. Camera and target translate together → the
+		// look direction is preserved (no recentre swing).
+		const applyZoom = (
+			cx: number,
+			cy: number,
+			zoomIn: boolean,
+			intensity: number,
+		): void => {
+			if (zoomIn) {
+				if (!focusValid) acquireFocus(cx, cy);
+				_zdir.copy(_focus).sub(camera.position);
+				const gap = _zdir.length();
+				if (gap < 1e-4) return;
+				_zdir.divideScalar(gap);
+				const step = Math.min(gap * intensity, gap - MIN_GAP);
+				if (step <= 0) return; // already at the surface
+				camera.position.addScaledVector(_zdir, step);
+				controls.target.addScaledVector(_zdir, step);
+				// Keep the orbit pivot from floating far PAST what we're inspecting:
+				// cap the camera→target radius at the focus distance so that, zoomed
+				// in, the pivot sits just ahead of the surface and rotate/pan stay
+				// tight. Pulled straight back along the view direction → no swing.
+				// (gap - step is the post-move camera→focus distance.)
+				_off.copy(controls.target).sub(camera.position);
+				const r = _off.length();
+				const cap = gap - step + MIN_GAP;
+				if (r > cap && r > 1e-4) {
+					controls.target.copy(camera.position).addScaledVector(_off, cap / r);
+				}
+			} else {
+				// Zoom out: pull straight back from the pivot along the view axis so
+				// the framing stays centred (dollying away from an off-centre focus
+				// would drift the camera sideways). Radius grows geometrically, capped.
+				_off.copy(camera.position).sub(controls.target);
+				const r = _off.length();
+				if (r < 1e-4) return;
+				const newR = Math.min(controls.maxDistance, r * (1 + intensity));
+				camera.position.copy(controls.target).addScaledVector(_off, newR / r);
+			}
+			controls.update();
+		};
+
+		const onWheel = (e: WheelEvent): void => {
+			e.preventDefault();
+			applyZoom(e.clientX, e.clientY, e.deltaY < 0, 0.33);
+		};
+		renderer.domElement.addEventListener('wheel', onWheel, { passive: false });
+
+		// Pinch zoom: track active touch pointers; when two are down, dolly toward
+		// their midpoint by the change in spread. The focus locks on the first
+		// pinch move and holds for the gesture. OrbitControls still two-finger pans
+		// (its dolly is disabled), so pinch + drag compose naturally.
+		const activePointers = new Map<number, { x: number; y: number }>();
+		let lastPinch = 0;
+		const onPointerDown = (e: PointerEvent): void => {
+			if (e.pointerType !== 'touch') return;
+			activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+			if (activePointers.size === 2) focusValid = false; // re-acquire at midpoint
+		};
+		const onPointerMove = (e: PointerEvent): void => {
+			// A mouse move (incl. an OrbitControls rotate/pan drag) aims the next
+			// wheel somewhere new — drop the locked focus so it re-acquires. Touch
+			// with two fingers down drives the pinch dolly below.
+			if (e.pointerType !== 'touch') {
+				focusValid = false;
+				return;
+			}
+			if (!activePointers.has(e.pointerId)) return;
+			activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+			if (activePointers.size !== 2) return;
+			const [a, b] = [...activePointers.values()];
+			const spread = Math.hypot(a.x - b.x, a.y - b.y);
+			const midX = (a.x + b.x) / 2;
+			const midY = (a.y + b.y) / 2;
+			if (lastPinch > 0) {
+				const d = spread - lastPinch;
+				if (Math.abs(d) > 0.5) {
+					applyZoom(midX, midY, d > 0, Math.min(0.5, Math.abs(d) / 200));
+				}
+			}
+			lastPinch = spread;
+		};
+		const onPointerUp = (e: PointerEvent): void => {
+			activePointers.delete(e.pointerId);
+			// Reset the pinch baseline on ANY finger change (e.g. 3→2 fingers) so the
+			// next two-finger move measures its spread from a fresh baseline instead
+			// of jumping. Drop the focus lock only once the pinch fully ends.
+			lastPinch = 0;
+			if (activePointers.size < 2) focusValid = false;
+		};
+		renderer.domElement.addEventListener('pointerdown', onPointerDown);
+		renderer.domElement.addEventListener('pointermove', onPointerMove);
+		renderer.domElement.addEventListener('pointerup', onPointerUp);
+		renderer.domElement.addEventListener('pointercancel', onPointerUp);
 
 		loader.load(
 			'/models/canadarm2.glb',
@@ -449,6 +646,7 @@ function ManipulatorScene({
 				);
 				armRoot.add(root);
 				scene.add(armRoot);
+				pickables.push(armRoot);
 
 				// Berth the arm on the ISS, not a Shuttle — Canadarm2 (SSRMS) lives on
 				// the station (Canadarm1 was the Shuttle arm). NASA's public-domain
@@ -467,6 +665,22 @@ function ManipulatorScene({
 						iss.rotation.set(ISS_ROT[0], ISS_ROT[1], ISS_ROT[2]);
 						iss.position.set(ISS_POS[0], ISS_POS[1], ISS_POS[2]);
 						scene.add(iss);
+						// Cull the stray high cluster (see ISS_CLIP_Y). World matrices
+						// must be current for setFromObject; collect first, hide after,
+						// so we never mutate the tree mid-traverse. visible = false is
+						// low-risk — the teardown's disposeObject(scene) still traverses
+						// and reclaims these on unmount.
+						iss.updateWorldMatrix(true, true);
+						const strays: THREE.Object3D[] = [];
+						const box = new THREE.Box3();
+						iss.traverse((o) => {
+							if ((o as THREE.Mesh).isMesh) {
+								box.setFromObject(o);
+								if (box.min.y > ISS_CLIP_Y) strays.push(o);
+							}
+						});
+						for (const s of strays) s.visible = false;
+						pickables.push(iss);
 					},
 					undefined,
 					() => {
@@ -489,6 +703,7 @@ function ManipulatorScene({
 						mbs.rotation.set(MBS_ROT[0], MBS_ROT[1], MBS_ROT[2]);
 						mbs.position.set(MBS_POS[0], MBS_POS[1], MBS_POS[2]);
 						scene.add(mbs);
+						pickables.push(mbs);
 					},
 					undefined,
 					() => {
@@ -616,12 +831,20 @@ function ManipulatorScene({
 					CAM_TARGET[1],
 					CAM_TARGET[2],
 				);
+				// On a portrait / narrow stage, pull the OPENING position back along the
+				// view direction so the phone frames ~2× the area a landscape desktop
+				// does. Desktop (wide stage) keeps the hand-tuned framing untouched.
+				const mw = mount.clientWidth || 1;
+				const mh = mount.clientHeight || 1;
+				if (mw / mh < 1 || mw < 640) {
+					camPos.sub(camTgt).multiplyScalar(PORTRAIT_DOLLY).add(camTgt);
+				}
 				const camDist = camPos.distanceTo(camTgt);
 				controls.target.copy(camTgt);
 				camera.position.copy(camPos);
 				// generous play range: pull right in close to the EE, or back out far
 				// enough to take in the whole station as context
-				controls.minDistance = 1;
+				controls.minDistance = 0.1;
 				controls.maxDistance = camDist * 14;
 				controls.update();
 
@@ -682,7 +905,12 @@ function ManipulatorScene({
 		const resize = (): void => {
 			const w = mount.clientWidth || 1;
 			const h = mount.clientHeight || 1;
-			renderer.setSize(w, h, false);
+			// updateStyle=true (the default): keep the canvas CSS size equal to the
+			// mount at every DPR while the drawing buffer stays crisp. Passing false
+			// left the canvas laid out at its high-DPR attribute size on phones, so it
+			// overflowed the mount (crop/zoom) and threw off both the screen-space
+			// label projection and OrbitControls' pointer→rotation mapping.
+			renderer.setSize(w, h);
 			camera.aspect = w / h;
 			camera.updateProjectionMatrix();
 		};
@@ -781,6 +1009,14 @@ function ManipulatorScene({
 				}
 			}
 
+			// confine the orbit/pan target to the visible-scene envelope so it
+			// can't strand in empty space, without capping zoom into the station.
+			// Must run BEFORE controls.update() so update() recomputes the camera
+			// from the clamped target (the camera−target offset is preserved
+			// across pan, so clamping the target here limits the pan cleanly — no
+			// rubber-band recoil or one-frame jitter).
+			controls.target.clamp(targetMinV, targetMaxV);
+
 			controls.update();
 			renderer.render(scene, camera);
 		};
@@ -793,6 +1029,11 @@ function ManipulatorScene({
 			if (navTimerRef.current !== null) window.clearTimeout(navTimerRef.current);
 			cancelAnimationFrame(frame);
 			ro.disconnect();
+			renderer.domElement.removeEventListener('wheel', onWheel);
+			renderer.domElement.removeEventListener('pointerdown', onPointerDown);
+			renderer.domElement.removeEventListener('pointermove', onPointerMove);
+			renderer.domElement.removeEventListener('pointerup', onPointerUp);
+			renderer.domElement.removeEventListener('pointercancel', onPointerUp);
 			controls.dispose();
 			// Ghost EEs share geometry with the arm, so pull them out of the scene
 			// first (disposeObject would otherwise dispose that shared geometry a
