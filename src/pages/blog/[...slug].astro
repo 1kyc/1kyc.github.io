@@ -1,0 +1,67 @@
+---
+import type { GetStaticPaths } from 'astro';
+import { getCollection, render } from 'astro:content';
+import Layout from '../../layouts/Layout.astro';
+
+export const getStaticPaths = (async () => {
+	const posts = (await getCollection('blog')).filter((post) =>
+		import.meta.env.PROD ? !post.data.draft : true,
+	);
+	return posts.map((post) => ({
+		params: { slug: post.id },
+		props: { post },
+	}));
+}) satisfies GetStaticPaths;
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+
+const dateFormatter = new Intl.DateTimeFormat('en-US', {
+	year: 'numeric',
+	month: 'long',
+	day: 'numeric',
+});
+---
+
+<Layout title={post.data.title}>
+	<article>
+		<h1>{post.data.title}</h1>
+		<p class="meta">
+			<time datetime={post.data.pubDate.toISOString()}>
+				{dateFormatter.format(post.data.pubDate)}
+			</time>
+			{post.data.updatedDate && (
+				<span class="updated">
+					{' '}(updated <time datetime={post.data.updatedDate.toISOString()}>
+						{dateFormatter.format(post.data.updatedDate)}
+					</time>)
+				</span>
+			)}
+		</p>
+		{post.data.tags.length > 0 && (
+			<ul class="tags">
+				{post.data.tags.map((tag) => <li>{tag}</li>)}
+			</ul>
+		)}
+		<Content />
+	</article>
+</Layout>
+
+<style>
+	.meta {
+		color: #666;
+		font-size: 0.9rem;
+	}
+	.tags {
+		display: flex;
+		gap: 0.5rem;
+		list-style: none;
+		padding: 0;
+		font-size: 0.85rem;
+	}
+	.tags li {
+		border: 1px solid #ccc;
+		border-radius: 999px;
+		padding: 0.1rem 0.6rem;
+	}
+</style>
