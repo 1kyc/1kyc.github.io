@@ -2,6 +2,8 @@
 import type { GetStaticPaths } from 'astro';
 import { getCollection, render } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
+import { formatDate } from '../../lib/date';
+import { hasCjk } from '../../lib/cjk';
 
 export const getStaticPaths = (async () => {
 	const posts = (await getCollection('blog')).filter((post) =>
@@ -15,25 +17,20 @@ export const getStaticPaths = (async () => {
 
 const { post } = Astro.props;
 const { Content } = await render(post);
-
-const dateFormatter = new Intl.DateTimeFormat('en-US', {
-	year: 'numeric',
-	month: 'long',
-	day: 'numeric',
-});
+const cjk = hasCjk(post.body ?? '');
 ---
 
-<Layout title={post.data.title}>
+<Layout title={post.data.title} lang={post.data.lang} cjk={cjk}>
 	<article>
 		<h1>{post.data.title}</h1>
 		<p class="meta">
 			<time datetime={post.data.pubDate.toISOString()}>
-				{dateFormatter.format(post.data.pubDate)}
+				{formatDate(post.data.pubDate)}
 			</time>
 			{post.data.updatedDate && (
 				<span class="updated">
 					{' '}(updated <time datetime={post.data.updatedDate.toISOString()}>
-						{dateFormatter.format(post.data.updatedDate)}
+						{formatDate(post.data.updatedDate)}
 					</time>)
 				</span>
 			)}
@@ -46,22 +43,3 @@ const dateFormatter = new Intl.DateTimeFormat('en-US', {
 		<Content />
 	</article>
 </Layout>
-
-<style>
-	.meta {
-		color: #666;
-		font-size: 0.9rem;
-	}
-	.tags {
-		display: flex;
-		gap: 0.5rem;
-		list-style: none;
-		padding: 0;
-		font-size: 0.85rem;
-	}
-	.tags li {
-		border: 1px solid #ccc;
-		border-radius: 999px;
-		padding: 0.1rem 0.6rem;
-	}
-</style>

@@ -1,0 +1,18 @@
+---
+// The heavy Noto Serif SC/JP @font-face CSS (~168KB gz of unicode-range
+// subsets), combined into a single stylesheet asset in src/styles/cjk-fonts.css.
+//
+// It's imported with `?url` — i.e. as an asset URL *string*, NOT as a
+// side-effect style import — on purpose. A side-effect `import '…css'` is
+// collected by Astro's per-page CSS crawl and would ship on every page that
+// shares this component's module graph (e.g. every blog post), even ones that
+// never render it. `?url` is just a hashed asset reference, so the stylesheet
+// ships only where the <link> below is actually rendered: pages whose content
+// contains CJK. English pages render nothing here and ship zero of it.
+//
+// Vite still processes the CSS (rewrites the font url()s to hashed /_astro
+// assets and emits the woff2s), so the fonts resolve correctly.
+import cjkFontsHref from '../styles/cjk-fonts.css?url';
+---
+
+<link rel="stylesheet" href={cjkFontsHref} />
