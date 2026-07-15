@@ -124,9 +124,10 @@ body {
 	--space-6: 4rem;
 
 	/* layout: the reading column + its side gutters.
-	   38rem ≈ 68–70ch of Noto Serif at 17.5px — squarely inside the 62–72ch
-	   comfort band. Nav and cards share --measure so their rules line up. */
-	--measure: 38rem;
+	   44rem ≈ 77ch of Noto Serif at 17.5px (~704px) — in the ~690px band of
+	   overreacted, joshwcomeau, robinwieruch, kentcdodds. Nav and cards share
+	   --measure so their rules line up. */
+	--measure: 44rem;
 	--gutter:  clamp(1rem, 5vw, 2rem);
 
 	/* geometry / motion (from the maze) */
@@ -318,6 +319,9 @@ main :where(h4) {
    td/th, code, .meta, .tags) — those keep --font-mono via their own later rules. */
 main :where(p, li, blockquote, dd, dt) {
 	font-family: var(--font-serif);
+	/* Noto Serif's default space reads a touch tight at this size; a hair of
+	   word-spacing opens the inter-word gap without touching letter tracking. */
+	word-spacing: 0.03em;
 }
 main :where(p) {
 	margin: 0 0 var(--space-4);
