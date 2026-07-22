@@ -1,19 +1,51 @@
 ---
+import '../styles/content.css';
+
+// Reading typeface: self-hosted Noto Sans via Fontsource. The Latin variable
+// face is global; the heavy CJK statics (zh-Hans / ja) load conditionally via
+// <CjkFonts>, only on pages whose content actually contains CJK. All
+// @font-face only; no JS.
+import '@fontsource-variable/noto-sans/index.css';
+import CjkFonts from '../components/CjkFonts.astro';
+
 interface Props {
 	title: string;
+	lang?: string;
+	cjk?: boolean;
 }
 
-const { title } = Astro.props;
+const { title, lang = 'en', cjk = false } = Astro.props;
+
+// Normalize the current path (drop any trailing slash) so section matching is
+// stable regardless of trailingSlash config.
+const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+
+// A nav link is "current" when the path is its own page or nested beneath it
+// (so `/blog` lights up on both `/blog` and `/blog/<slug>`). The `${href}/`
+// guard keeps `/blog` from matching a sibling like `/blogfoo`.
+const isActive = (href: string) =>
+	path === href || path.startsWith(`${href}/`);
 ---
 
-<html lang="en">
+<html lang={lang}>
 	<head>
 		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width" />
+		{/* No-FOUC: set the theme attribute BEFORE the body paints so the correct
+		    palette + toggle icon render on first frame. is:inline keeps it
+		    synchronous/blocking (Astro won't bundle or defer it); the try/catch
+		    guards private-mode localStorage throwing. */}
+		<script is:inline>
+			try {
+				var t = localStorage.getItem('theme');
+				if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+			} catch (e) {}
+		</script>
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
 		<meta name="generator" content={Astro.generator} />
 		<title>{title}</title>
+		{cjk && <CjkFonts />}
 	</head>
 	<body>
 		{/* The maze guards ONLY the landing/root — it isolates that one page.
@@ -21,22 +53,43 @@ const { title } = Astro.props;
 		    discoverable and indexable, so their nav is plaintext by design.
 		    Keep this in the clear; only the root is hidden behind the maze. */}
 		<nav>
-			<a href="/home">Home</a>
-			<a href="/blog">Blog</a>
-			<a href="/projects">Projects</a>
-			<a href="/about">About</a>
+			<a href="/home" aria-current={isActive('/home') ? 'page' : undefined}>Home</a>
+			<a href="/blog" aria-current={isActive('/blog') ? 'page' : undefined}>Blog</a>
+			<a href="/projects" aria-current={isActive('/projects') ? 'page' : undefined}>Projects</a>
+			<a href="/about" aria-current={isActive('/about') ? 'page' : undefined}>About</a>
+			<button type="button" class="theme-toggle" aria-label="Switch color theme">
+				<svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+					<circle cx="12" cy="12" r="4" />
+					<path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+				</svg>
+				<svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+					<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+				</svg>
+			</button>
 		</nav>
 		<main>
 			<slot />
 		</main>
+		{/* Toggle behavior. A bundled Astro <script> is an ES module = deferred,
+		    so the DOM (and the button) is ready when it runs. The correct icon +
+		    palette are already painted by the no-FOUC head script and the CSS
+		    theme selectors; this only flips the choice and syncs the aria-label. */}
+		<script>
+			const btn = document.querySelector('.theme-toggle');
+			if (btn) {
+				const root = document.documentElement;
+				const effective = () =>
+					root.dataset.theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+				const setLabel = () =>
+					btn.setAttribute('aria-label', effective() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme');
+				setLabel();
+				btn.addEventListener('click', () => {
+					const next = effective() === 'dark' ? 'light' : 'dark';
+					root.dataset.theme = next;
+					try { localStorage.setItem('theme', next); } catch (e) {}
+					setLabel();
+				});
+			}
+		</script>
 	</body>
 </html>
-
-<style>
-	nav {
-		display: flex;
-		gap: 1rem;
-		padding: 1rem;
-		border-bottom: 1px solid #ccc;
-	}
-</style>

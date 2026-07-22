@@ -2,46 +2,32 @@
 import { getCollection } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
 import { excerpt } from '../../lib/excerpt';
+import { formatDate } from '../../lib/date';
+import { hasCjk } from '../../lib/cjk';
 
 const posts = (await getCollection('blog'))
 	.filter((post) => import.meta.env.PROD ? !post.data.draft : true)
 	.sort((a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime());
 
-const dateFormatter = new Intl.DateTimeFormat('en-US', {
-	year: 'numeric',
-	month: 'long',
-	day: 'numeric',
-});
+const cjk = posts.some((post) => hasCjk(post.data.title + ' ' + excerpt(post)));
 ---
 
-<Layout title="Blog">
+<Layout title="Blog" cjk={cjk}>
 	<h1>Blog</h1>
 	<ul class="post-list">
 		{posts.map((post) => (
-			<li class="post-card">
+			<li class="post-card" lang={post.data.lang}>
 				<h2><a href={`/blog/${post.id}`}>{post.data.title}</a></h2>
 				<time datetime={post.data.pubDate.toISOString()}>
-					{dateFormatter.format(post.data.pubDate)}
+					{formatDate(post.data.pubDate)}
 				</time>
 				<p>{excerpt(post)}</p>
+				{post.data.tags.length > 0 && (
+					<ul class="tags">
+						{post.data.tags.map((tag) => <li>{tag}</li>)}
+					</ul>
+				)}
 			</li>
 		))}
 	</ul>
 </Layout>
-
-<style>
-	.post-list {
-		list-style: none;
-		padding: 0;
-	}
-	.post-card {
-		margin-block: 2rem;
-	}
-	.post-card h2 {
-		margin-block-end: 0.25rem;
-	}
-	.post-card time {
-		color: #666;
-		font-size: 0.9rem;
-	}
-</style>

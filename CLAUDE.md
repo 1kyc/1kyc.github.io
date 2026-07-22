@@ -8,8 +8,9 @@ My **GitHub Pages** user site, published at https://1kyc.github.io.
 root's real nav from crawlers. The maze isolates the LANDING PAGE ONLY — it is
 not a site-wide crawler-hostile stance. Content pages (the blog especially) are
 meant to be openly discoverable and indexable; the maze guards only the root.
-Stack: Astro + **Preact islands** (interactive bits only; content pages stay
-zero-JS).
+Stack: Astro + **Preact islands** (interactive bits only). Content pages are
+static/zero-JS by default; the one sanctioned exception is a small vanilla
+theme-toggle script (no framework island) in the shared `Layout.astro`.
 
 - **Destinations are hash-hidden.** Real paths never appear as plaintext or
   `<a href>` in the served HTML/JS. `scripts/gen-destinations.mjs` (run

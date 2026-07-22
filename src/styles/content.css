@@ -1,0 +1,777 @@
+/* =============================================================================
+   content.css — visual system for the NON-maze pages
+   -----------------------------------------------------------------------------
+   The reading room. A sibling to maze.css: same palette, same accent, same
+   spacing/geometry tokens — but tuned for reading long-form posts instead of
+   solving a puzzle. Where the maze is all-monospace, dark-only, and alive with
+   ambient moiré, this is calm and still: a serif reading column with monospace
+   "furniture" (nav, meta, tags, code, tables) that keeps the family reference
+   felt. Plain CSS driven by tokens. No web fonts, no raster assets, zero JS.
+
+   Imported once by Layout.astro (`import '../styles/content.css'`), so it styles
+   every content page (blog index, blog post, and later about/projects).
+
+   THEME
+     Dark is the base (:root) so the pages default to the maze's mood; a
+     `@media (prefers-color-scheme: light)` block swaps in a warm-paper palette.
+     The OS preference decides by default; a small vanilla theme-toggle in the
+     shared Layout can set `data-theme` on <html> for an explicit override that
+     wins over the media query (see section 1b + 3a). Users with no preference
+     and no explicit choice get dark (matching the landing).
+
+   HAND-OFF MAP — what each selector targets (see the per-section notes for the
+   details behind each):
+     body                     page base: bg, ink, serif, min-height, reset
+     nav                      the Layout top nav (mono, quiet; current = accent + underline)
+       nav a[aria-current]      the active page link (dev adds aria-current)
+     main                     the centered reading column (measure + gutters)
+     main h1–h4               serif headings, vertical-rhythm margins
+     main p / strong / em     body copy + emphasis
+     main a (in text flow)    accent links with a considered underline
+     main code (inline)       mono chip on a surface tint
+     main pre                 fenced code panel (chrome; Shiki paints the bg)
+     main blockquote          quiet, distinct: left rule + surface tint + italic
+     main ul / ol / li        lists, nested lists, accent ::marker
+     main table / th / td     mono data grid; scrolls in its own box on mobile
+     main hr                  dashed divider (echoes the maze's exit rule)
+     main img / figure        responsive media + mono caption
+     .post-list / .post-card  blog index: card list, hairline separators
+     .meta                    a post's mono date/updated line
+     .tags / .tags li         the wrapping tag row + quiet "#" chips
+   ============================================================================= */
+
+/* -----------------------------------------------------------------------------
+   0. RESET
+   Layout.astro ships no reset of its own, so establish border-box + zero the
+   default body margin here (same move maze.css makes for the landing).
+   --------------------------------------------------------------------------- */
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+html {
+	-webkit-text-size-adjust: 100%;
+}
+html,
+body {
+	margin: 0;
+}
+
+/* -----------------------------------------------------------------------------
+   1. DESIGN TOKENS — DARK (base)
+   The maze's exact values, carried over verbatim so the pages read as the same
+   world. Two additions the maze didn't need:
+     --meta   a brighter secondary ink than --muted, so date/tag text clears
+              AA (4.5:1) as real reading text; --muted stays for decoration
+              (chip borders, list dashes, prompt marks) exactly as in the maze.
+     --font-serif  the reading typeface (see the note on section 3).
+   --------------------------------------------------------------------------- */
+:root {
+	/* surfaces */
+	--bg:        #14181f;   /* page background, lifted charcoal with a blue cast */
+	--surface:   #1b212b;   /* code panels, chips, table headers, card tints    */
+	--border:    #28313f;   /* hairlines, rules, table borders                  */
+
+	/* text */
+	--text:      #c7d0dc;   /* primary reading ink (cool light gray)            */
+	--meta:      #8b95a4;   /* secondary ink — meta/tags; AA on --bg            */
+	--muted:     #5a6473;   /* decoration only: chip borders, dashes, markers   */
+
+	/* accents (identical to the maze) */
+	--accent:    #4ade80;   /* links, current-nav marker, list markers (green)  */
+	/* Derived hover/emphasis: push --accent toward the page ink (--text). Because
+	   --text flips per theme, this auto-deepens the green on light paper and
+	   brightens it on the dark bg — no per-theme value to keep in sync. Clears AA
+	   both ways (light ~7.4:1, dark ~10.4:1). */
+	--accent-hover: color-mix(in srgb, var(--accent) 60%, var(--text));
+	--accent-2:  #38bdf8;   /* reserved cool accent (parity with the maze)      */
+	--brand:     #fbbf24;   /* reserved warm gold (parity with the maze)        */
+
+	/* derived translucents — same color-mix idiom the maze uses */
+	--accent-soft:  color-mix(in srgb, var(--accent) 16%, transparent);  /* selection, hover wash */
+	--accent-line:  color-mix(in srgb, var(--accent) 45%, transparent);  /* resting link underline */
+	--surface-soft: color-mix(in srgb, var(--surface) 55%, transparent); /* chip / quote / stripe */
+
+	/* typography ---------------------------------------------------------------
+	   Body is set in a SERIF, not the maze's monospace. Rationale: the maze is a
+	   mechanical puzzle box — monospace is right there. A reading room wants a
+	   humanist reading face: better rhythm and word-shape for paragraphs, and it
+	   diverges from the puzzle clearly while MONO stays the shared thread on the
+	   furniture (nav, meta, tags, code, tables). No web fonts, per the maze's
+	   constraint — this stack leads with faces that actually ship on each OS
+	   (Charter on macOS/iOS, Sitka/Cambria on Windows, Georgia everywhere).
+	   Noto Serif Variable now leads the stack (self-hosted via Fontsource, see
+	   Layout.astro); the OS faces remain the fallback tail if it fails to load. */
+	--font-serif: "Noto Sans Variable", -apple-system, "Segoe UI", Roboto,
+		"Helvetica Neue", Arial, system-ui, sans-serif;
+	--font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code",
+		"Fira Code", Menlo, Consolas, "Liberation Mono", monospace;
+
+	/* type scale — ~1.24 ratio, one fluid step at the top (h1) */
+	--fs-xs:   0.8125rem;  /* 13px — meta, tags, captions                       */
+	--fs-sm:   0.9375rem;  /* 15px — code, tables, nav                          */
+	--fs-base: 1.0625rem;  /* 17px — body copy (Noto Sans's tall x-height       */
+	                       /*        reads a touch larger, so trimmed from 18)  */
+	--fs-h4:   1.2rem;     /* 19px                                              */
+	--fs-h3:   1.45rem;    /* 23px                                              */
+	--fs-h2:   1.85rem;    /* 30px                                              */
+	--fs-h1:   clamp(2.1rem, 1.6rem + 2.2vw, 2.9rem);
+
+	--lh-body:    1.7;     /* generous leading for long-form serif              */
+	--lh-heading: 1.25;
+
+	/* tracking — body running text only; em so it scales with each size        */
+	--track-body: -0.01em;
+
+	/* spacing rhythm (4px base) — maze's 1–5, plus a section-scale --space-6 */
+	--space-1: 0.25rem;
+	--space-2: 0.5rem;
+	--space-3: 1rem;
+	--space-4: 1.5rem;
+	--space-5: 2.5rem;
+	--space-6: 4rem;
+
+	/* layout: the reading column + its side gutters.
+	   44rem ≈ 77ch of Noto Serif at 17.5px (~704px) — in the ~690px band of
+	   overreacted, joshwcomeau, robinwieruch, kentcdodds. Nav and cards share
+	   --measure so their rules line up. */
+	--measure: 44rem;
+	--gutter:  clamp(1rem, 5vw, 2rem);
+
+	/* geometry / motion (from the maze) */
+	--radius: 6px;
+	--ease:   cubic-bezier(0.2, 0.7, 0.2, 1);
+	--dur:    140ms;
+
+	color-scheme: dark;
+}
+
+/* -----------------------------------------------------------------------------
+   1a. CJK SERIF OVERRIDES
+   The base --font-serif is Latin-first (Noto Serif has no CJK coverage). For
+   pages/articles tagged with a CJK language, keep Noto Serif Variable at the
+   HEAD so Latin characters in mixed text still render in the reading face, then
+   fall through to the regional Noto Serif for the CJK glyphs. :lang() matches at
+   ANY level — <html lang> / <article lang> for whole-page posts, but also an
+   inner <p lang="…"> block inside an otherwise-English post. For that inner case
+   to reach the body text (not just headings), the serif running-text elements
+   re-read var(--font-serif) in section 6; English scopes never apply the
+   regional faces.
+   --------------------------------------------------------------------------- */
+:lang(zh-Hans) {
+	--font-serif: "Noto Sans Variable", "Noto Sans SC", system-ui, sans-serif;
+}
+:lang(ja) {
+	--font-serif: "Noto Sans Variable", "Noto Sans JP", system-ui, sans-serif;
+}
+
+/* -----------------------------------------------------------------------------
+   1b. DESIGN TOKENS — LIGHT
+   The SAME system inverted: warm-neutral paper (not stark white), cool dark ink
+   that keeps the palette's blue cast, and the SAME green — darkened to a forest
+   tone so it clears AA (4.5:1) as link text on paper. Only the color tokens
+   change; every type/space/geometry token is inherited from :root above.
+
+   TWO light blocks, kept intentionally in sync:
+     • @media (prefers-color-scheme: light) :root:not([data-theme])  — OS light,
+       and ONLY when the reader hasn't made an explicit choice. The
+       :not([data-theme]) gate lets an explicit override always win (so OS-light
+       + data-theme="dark" correctly falls through to the base :root dark tokens).
+     • :root[data-theme="light"]                                      — explicit
+       light chosen via the toggle, regardless of OS preference.
+   Base :root (above) covers both explicit dark and OS-dark, so no separate
+   [data-theme="dark"] block is needed. Any edit to the light palette MUST be
+   mirrored across BOTH blocks below.
+   --------------------------------------------------------------------------- */
+@media (prefers-color-scheme: light) {
+	:root:not([data-theme]) {
+		/* surfaces — warm ivory page, a deeper warm paper for panels/chips */
+		--bg:      #f4f1ea;
+		--surface: #eae4d8;
+		--border:  #d9d2c4;
+
+		/* text — cool dark slate ink (echoes the dark theme's blue cast) */
+		--text:    #1e242e;   /* ~14:1 on --bg */
+		--meta:    #545b66;   /* ~6:1  on --bg */
+		--muted:   #7c8492;   /* decoration only */
+
+		/* accents — same hues, darkened for contrast on paper */
+		--accent:   #1a7d3a;  /* brighter forest green, ~4.6:1 on --bg for links (AA) */
+		/* --accent-hover is derived from --accent in :root (mixes toward --text) */
+		--accent-2: #0e6f86;  /* deep cyan (parity) */
+		--brand:    #a45a10;  /* deep amber (parity) */
+
+		color-scheme: light;
+	}
+}
+
+/* Explicit light override — SAME tokens as the media block above; keep in sync. */
+:root[data-theme="light"] {
+	/* surfaces — warm ivory page, a deeper warm paper for panels/chips */
+	--bg:      #f4f1ea;
+	--surface: #eae4d8;
+	--border:  #d9d2c4;
+
+	/* text — cool dark slate ink (echoes the dark theme's blue cast) */
+	--text:    #1e242e;   /* ~14:1 on --bg */
+	--meta:    #545b66;   /* ~6:1  on --bg */
+	--muted:   #7c8492;   /* decoration only */
+
+	/* accents — same hues, darkened for contrast on paper */
+	--accent:   #1a7d3a;  /* brighter forest green, ~4.6:1 on --bg for links (AA) */
+	/* --accent-hover is derived from --accent in :root (mixes toward --text) */
+	--accent-2: #0e6f86;  /* deep cyan (parity) */
+	--brand:    #a45a10;  /* deep amber (parity) */
+
+	color-scheme: light;
+}
+
+/* -----------------------------------------------------------------------------
+   2. PAGE BASE
+   Serif reading ink on the themed background. No ambient layers, no motion —
+   the calm is the point.
+   --------------------------------------------------------------------------- */
+body {
+	min-height: 100dvh;
+	background: var(--bg);
+	color: var(--text);
+	font-family: var(--font-serif);
+	font-size: var(--fs-base);
+	line-height: var(--lh-body);
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+}
+
+/* text selection — a wash of the accent, the one flourish carried from the maze */
+::selection {
+	background: var(--accent-soft);
+	color: var(--text);
+}
+
+/* one shared focus ring for keyboard users across the whole system */
+:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+	border-radius: 2px;
+}
+
+/* -----------------------------------------------------------------------------
+   3. NAV (top of Layout.astro)
+   Quiet, monospace furniture aligned to the reading column so its underline rule
+   sits flush with the content measure. Links rest in --muted and wake to
+   --accent-hover; the CURRENT page is marked in accent ink with a non-color
+   underline cue (so "you are here" survives without relying on color alone). The
+   dev adds aria-current="page" to the active link (see WIRING).
+   --------------------------------------------------------------------------- */
+nav {
+	display: flex;
+	flex-wrap: wrap;              /* never overflow narrow screens */
+	gap: var(--space-2) var(--space-4);
+	align-items: baseline;
+
+	max-width: var(--measure);
+	margin-inline: auto;
+	padding: var(--space-3) var(--gutter);
+	border-bottom: 1px solid var(--border);
+
+	font-family: var(--font-mono);
+	font-size: var(--fs-sm);
+	letter-spacing: 0.04em;
+}
+nav a {
+	color: var(--muted);
+	text-decoration: none;
+	padding-block: var(--space-1);
+	transition: color var(--dur) var(--ease);
+}
+nav a:hover,
+nav a:focus-visible {
+	color: var(--accent-hover);
+}
+/* current page: accent ink + a non-color underline cue (offset for legibility) */
+nav a[aria-current="page"] {
+	color: var(--accent);
+	text-decoration: underline;
+	text-decoration-thickness: 1px;
+	text-underline-offset: 0.35em;
+}
+
+/* -----------------------------------------------------------------------------
+   3a. THEME TOGGLE — quiet nav furniture (light/dark switch)
+   A native <button class="theme-toggle"> that lives at the RIGHT end of the nav
+   (margin-inline-start:auto pushes it past the links). It reads as the same
+   monochrome furniture as the links: rests in --muted, wakes to --accent-hover
+   on hover/focus — no pill, no fill, no switch. Just an icon that changes color.
+
+   ICON = CURRENT THEME (moon while dark is active, sun while light is active),
+   mirroring the nav's "you are here" logic: the current-page link shows where
+   you ARE, so the toggle shows the theme you're IN. JS only flips the theme +
+   updates aria-label; the correct icon is chosen entirely by the CSS theme
+   selectors below, so it's right even before/without JS (no flash of wrong icon).
+
+   Hit area is a 2.25rem (36px) square for comfortable tapping; negative
+   margin-block folds that back into the text line so the nav's row height and
+   rhythm are unchanged. Tune --tt-size / the negative margin if the row shifts.
+   --------------------------------------------------------------------------- */
+.theme-toggle {
+	--tt-size: 2.25rem;              /* 36px hit area — tunable */
+	margin-inline-start: auto;       /* sit at the far right, after the links */
+	align-self: center;              /* center on the baseline-aligned nav row */
+
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	inline-size: var(--tt-size);
+	block-size: var(--tt-size);
+	margin-block: calc((var(--tt-size) - 1.5rem) / -2); /* absorb the extra height */
+
+	padding: 0;
+	border: none;
+	background: none;
+	border-radius: var(--radius);
+	color: var(--muted);             /* resting = same quiet ink as nav links */
+	cursor: pointer;
+
+	/* match the mono nav sizing so the 1em icon aligns with the link text */
+	font-family: var(--font-mono);
+	font-size: var(--fs-sm);
+	line-height: 1;
+	-webkit-tap-highlight-color: transparent;
+
+	transition: color var(--dur) var(--ease);
+}
+/* wake to the SAME hover ink as the links (the shared :focus-visible ring in
+   section 2 already handles the keyboard outline — nothing custom needed) */
+.theme-toggle:hover,
+.theme-toggle:focus-visible {
+	color: var(--accent-hover);
+}
+.theme-toggle svg {
+	inline-size: 1.05em;             /* ~1em, optically matched to the mono text */
+	block-size: 1.05em;
+	display: block;
+}
+
+/* --- icon visibility, driven PURELY by theme state (no JS) --------------------
+   Base (:root) is dark, so the moon shows by default. The light cases reveal the
+   sun. Covering all four resolutions:
+     • :root[data-theme="dark"]  → base rule (moon)          — explicit dark
+     • :root[data-theme="light"] → sun rule                  — explicit light
+     • no attr + OS dark         → base rule (moon)           — system dark
+     • no attr + OS light        → media rule (:not([data-theme])) → sun
+   The media rule is gated on :not([data-theme]) so an explicit choice always
+   beats the OS preference (e.g. OS light + data-theme="dark" keeps the moon). */
+.theme-toggle .icon-sun  { display: none; }
+.theme-toggle .icon-moon { display: block; }
+
+:root[data-theme="light"] .theme-toggle .icon-sun  { display: block; }
+:root[data-theme="light"] .theme-toggle .icon-moon { display: none; }
+
+@media (prefers-color-scheme: light) {
+	:root:not([data-theme]) .theme-toggle .icon-sun  { display: block; }
+	:root:not([data-theme]) .theme-toggle .icon-moon { display: none; }
+}
+
+/* -----------------------------------------------------------------------------
+   4. READING COLUMN
+   Layout.astro's <main> IS the column: constrained measure, centered, with fluid
+   side gutters so text never runs edge-to-edge and always keeps breathing room
+   on mobile. Everything a page or a markdown post renders lives inside here.
+   --------------------------------------------------------------------------- */
+main {
+	max-width: var(--measure);
+	margin-inline: auto;
+	padding: var(--space-6) var(--gutter) var(--space-6);
+}
+/* first block never pushes a stray gap under the nav */
+main > :first-child,
+article > :first-child {
+	margin-top: 0;
+}
+
+/* -----------------------------------------------------------------------------
+   5. HEADINGS + VERTICAL RHYTHM
+   Serif headings (they belong to the reading voice; mono is reserved for
+   furniture). Space-BEFORE scales with level so sections open with air; the
+   :where() keeps specificity at 0 so page-scoped tweaks always win.
+   --------------------------------------------------------------------------- */
+main :where(h1, h2, h3, h4) {
+	color: var(--text);
+	font-family: var(--font-serif);
+	line-height: var(--lh-heading);
+	text-wrap: balance;          /* tidy multi-line headings where supported */
+}
+main :where(h1) {
+	font-size: var(--fs-h1);
+	font-weight: 700;
+	letter-spacing: -0.01em;
+	margin: 0 0 var(--space-3);
+}
+main :where(h2) {
+	font-size: var(--fs-h2);
+	font-weight: 700;
+	letter-spacing: -0.005em;
+	margin: var(--space-6) 0 var(--space-3);
+}
+main :where(h3) {
+	font-size: var(--fs-h3);
+	font-weight: 600;
+	margin: var(--space-5) 0 var(--space-2);
+}
+main :where(h4) {
+	font-size: var(--fs-h4);
+	font-weight: 600;
+	margin: var(--space-4) 0 var(--space-2);
+}
+
+/* -----------------------------------------------------------------------------
+   6. BODY COPY + INLINE EMPHASIS
+   --------------------------------------------------------------------------- */
+/* Running text RE-DECLARES the serif family rather than inheriting body's
+   already-resolved font-family string. This is what lets the section-1a
+   :lang() overrides reach mixed-language BODY text: a <p lang="zh-Hans"> inside
+   an English post re-reads var(--font-serif) in its own :lang scope, so it picks
+   up "Noto Serif SC". Deliberately excludes the mono furniture (figcaption,
+   td/th, code, .meta, .tags) — those keep --font-mono via their own later rules. */
+main :where(p, li, blockquote, dd, dt) {
+	font-family: var(--font-serif);
+	/* Noto Sans reads a touch loose at body size; a hair of negative tracking
+	   tightens the letterfit. In em so it scales with each element's own size. */
+	letter-spacing: var(--track-body);
+}
+main :where(p) {
+	margin: 0 0 var(--space-4);
+}
+main :where(strong) {
+	font-weight: 700;
+	color: var(--text);
+}
+main :where(em) {
+	font-style: italic;
+}
+main :where(small) {
+	font-size: var(--fs-sm);
+	color: var(--meta);
+}
+
+/* -----------------------------------------------------------------------------
+   7. LINKS (in text flow)
+   Scoped to links inside running text so it never touches the card TITLE links
+   (styled plain in section 12) or the nav. Accent ink with a quiet resting
+   underline (a translucent accent line, offset for legibility) that solidifies
+   on hover — considered, not shouty.
+   --------------------------------------------------------------------------- */
+main :where(p, li, td, th, blockquote, dd, figcaption) a {
+	color: var(--accent);
+	text-decoration: underline;
+	text-decoration-color: var(--accent-line);
+	text-decoration-thickness: 1px;
+	text-underline-offset: 0.15em;
+	transition:
+		color var(--dur) var(--ease),
+		text-decoration-color var(--dur) var(--ease);
+}
+main :where(p, li, td, th, blockquote, dd, figcaption) a:hover {
+	color: var(--accent-hover);
+	text-decoration-color: var(--accent-hover);
+}
+
+/* -----------------------------------------------------------------------------
+   8. LISTS (incl. nested)
+   Accent ::marker is the one DNA tint here; nested lists tighten their margins
+   so depth reads without ballooning space.
+   --------------------------------------------------------------------------- */
+main :where(ul, ol) {
+	margin: 0 0 var(--space-4);
+	padding-inline-start: 1.5em;
+}
+main :where(li) {
+	margin-block: var(--space-1);
+}
+main :where(li)::marker {
+	color: color-mix(in srgb, var(--accent) 75%, var(--muted));
+}
+/* nested list: no extra top gap, slightly tighter items */
+main :where(li) > :where(ul, ol) {
+	margin-block: var(--space-1);
+}
+
+/* -----------------------------------------------------------------------------
+   9. BLOCKQUOTE — quiet but distinct
+   A left accent-neutral rule + a faint surface tint + italic serif. Reads as a
+   set-apart voice "without shouting" (no big glyphs, no color grab).
+   --------------------------------------------------------------------------- */
+main :where(blockquote) {
+	margin: var(--space-4) 0;
+	padding: var(--space-2) var(--space-4);
+	border-inline-start: 3px solid var(--border);
+	background: var(--surface-soft);
+	border-radius: 0 var(--radius) var(--radius) 0;
+	color: var(--meta);
+	font-style: italic;
+}
+main :where(blockquote) :where(p) {
+	margin-block: var(--space-2);
+}
+
+/* -----------------------------------------------------------------------------
+   10. CODE — inline + fenced
+   Inline code is a mono chip on a surface tint. The fenced <pre> is a surface
+   PANEL: this rule owns the chrome (border, radius, padding, horizontal scroll).
+   NOTE on the background: Astro's built-in Shiki writes an inline
+   background-color onto <pre> (its theme's bg), which wins over the fallback
+   below. In dark mode that's fine — a dark panel reads correctly. For a panel
+   that tracks BOTH themes, configure dual Shiki themes (see WIRING); the
+   background var() here is the fallback for when Shiki emits no inline bg.
+   --------------------------------------------------------------------------- */
+main :where(:not(pre) > code) {
+	font-family: var(--font-mono);
+	font-size: 0.875em;
+	padding: 0.12em 0.4em;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	color: var(--text);
+}
+main :where(pre) {
+	margin: var(--space-4) 0;
+	padding: var(--space-3) var(--space-4);
+	background: var(--surface);        /* fallback; Shiki may paint over this */
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	overflow-x: auto;
+	font-size: var(--fs-sm);
+	line-height: 1.6;
+}
+/* inside a fence, code is transparent — Shiki's token spans carry the color */
+main :where(pre) code {
+	font-family: var(--font-mono);
+	font-size: inherit;
+	background: none;
+	border: none;
+	padding: 0;
+	color: inherit;
+}
+/* dual-theme Shiki: astro.config.mjs sets themes {light,dark} + defaultColor
+   false, so Shiki emits --shiki-light / --shiki-dark vars instead of a single
+   inline background. Bind them to prefers-color-scheme so the panel tracks the
+   page theme (dark is the base to match :root). */
+main :where(pre),
+main :where(pre) span {
+	color: var(--shiki-dark);
+	background: var(--shiki-dark-bg);
+}
+/* Mirror the section-1 palette gating: the OS-preference media query only
+   applies when no explicit choice is set, and an explicit [data-theme="light"]
+   override wins regardless of OS, so code panels follow the toggle not the OS. */
+@media (prefers-color-scheme: light) {
+	:root:not([data-theme]) main :where(pre),
+	:root:not([data-theme]) main :where(pre) span {
+		color: var(--shiki-light);
+		background: var(--shiki-light-bg);
+	}
+}
+:root[data-theme="light"] main :where(pre),
+:root[data-theme="light"] main :where(pre) span {
+	color: var(--shiki-light);
+	background: var(--shiki-light-bg);
+}
+
+/* -----------------------------------------------------------------------------
+   11. TABLES
+   Set in MONO (tabular data reads as furniture, columns align) and made
+   self-scrolling with a pure-CSS trick that needs NO markup wrapper: a
+   `display:block` table keeps its grid via an anonymous table box while the
+   block box itself becomes the horizontal scroll container. So wide tables
+   scroll inside their own box on mobile instead of blowing out the column.
+   --------------------------------------------------------------------------- */
+main :where(table) {
+	display: block;
+	width: max-content;
+	max-width: 100%;
+	overflow-x: auto;
+	border-collapse: collapse;
+	margin: var(--space-4) 0;
+	font-family: var(--font-mono);
+	font-size: var(--fs-sm);
+	font-variant-numeric: tabular-nums;
+}
+main :where(th, td) {
+	padding: var(--space-2) var(--space-3);
+	border: 1px solid var(--border);
+	text-align: left;
+	vertical-align: top;
+}
+main :where(thead th) {
+	background: var(--surface);
+	color: var(--text);
+	font-weight: 600;
+	letter-spacing: 0.02em;
+}
+main :where(tbody td) {
+	color: var(--meta);
+}
+/* faint zebra striping to guide the eye across wide rows */
+main :where(tbody tr:nth-child(even) td) {
+	background: var(--surface-soft);
+}
+
+/* thin scrollbars on the two things that scroll (code + tables) */
+main :where(pre, table)::-webkit-scrollbar {
+	height: 8px;
+}
+main :where(pre, table)::-webkit-scrollbar-thumb {
+	background: var(--border);
+	border-radius: 4px;
+}
+
+/* -----------------------------------------------------------------------------
+   12. HR + MEDIA
+   The divider is a DASHED rule — a direct nod to the maze's dashed exit fence.
+   Images stay inside the column; figure captions are mono, like other furniture.
+   --------------------------------------------------------------------------- */
+main :where(hr) {
+	border: none;
+	border-top: 1px dashed var(--border);
+	margin: var(--space-6) 0;
+}
+main :where(img) {
+	max-width: 100%;
+	height: auto;
+	border-radius: var(--radius);
+}
+main :where(figure) {
+	margin: var(--space-4) 0;
+}
+main :where(figcaption) {
+	margin-top: var(--space-2);
+	font-family: var(--font-mono);
+	font-size: var(--fs-xs);
+	color: var(--meta);
+	text-align: center;
+}
+
+/* -----------------------------------------------------------------------------
+   13. BLOG INDEX — the post-card list
+   Cards are separated by hairlines rather than boxed, keeping the index quiet.
+   The title is a plain SERIF link (accent only on hover — it must not read like
+   an inline body link); the date is mono furniture; the excerpt is body copy.
+   The tag row (section 14) is shared with the post page.
+
+   The index route currently renders card = h2>a (title), <time>, <p> (excerpt).
+   Adding a per-card tag row is a small markup change (see WIRING); the .tags
+   styles below already cover it.
+   --------------------------------------------------------------------------- */
+.post-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+.post-card {
+	padding-block: var(--space-5);
+	border-bottom: 1px solid var(--border);
+}
+.post-card:first-child {
+	padding-top: 0;
+}
+.post-card:last-child {
+	border-bottom: none;
+}
+.post-card h2 {
+	margin: 0 0 var(--space-2);
+	font-size: var(--fs-h3);
+	font-weight: 600;
+	line-height: var(--lh-heading);
+}
+.post-card h2 a {
+	color: var(--text);
+	text-decoration: none;
+	transition: color var(--dur) var(--ease);
+}
+.post-card h2 a:hover,
+.post-card h2 a:focus-visible {
+	color: var(--accent-hover);
+}
+/* the card's bare <time> — mono meta, sits under the title */
+.post-card > time {
+	display: block;
+	font-family: var(--font-mono);
+	font-size: var(--fs-xs);
+	letter-spacing: 0.04em;
+	color: var(--meta);
+}
+.post-card p {
+	margin: var(--space-2) 0 0;
+	color: var(--text);
+}
+
+/* -----------------------------------------------------------------------------
+   14. META LINE + TAG CHIPS
+   .meta — a post's mono date/(updated) line under the H1.
+   .tags — a wrapping row of quiet "#" chips (echoing the maze's muted labels).
+   The tallest case is 6 tags; flex-wrap lets the row break gracefully with no
+   overflow. Shared by the post page today and the index cards once wired.
+   --------------------------------------------------------------------------- */
+.meta {
+	font-family: var(--font-mono);
+	font-size: var(--fs-xs);
+	letter-spacing: 0.04em;
+	color: var(--meta);
+}
+.meta .updated {
+	color: var(--muted);
+}
+
+.tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-2);
+	list-style: none;
+	margin: var(--space-3) 0;
+	padding: 0;
+}
+.tags li {
+	font-family: var(--font-mono);
+	font-size: var(--fs-xs);
+	letter-spacing: 0.04em;
+	color: var(--meta);
+	padding: 0.15em 0.6em;
+	background: var(--surface-soft);
+	border: 1px solid var(--border);
+	border-radius: 999px;
+	transition: color var(--dur) var(--ease);
+}
+.tags li:hover {
+	color: var(--accent-hover);
+}
+.tags li::before {
+	content: "#";
+	margin-right: 0.1em;
+	/* midpoint between --muted and the pill edge --border: quiet but not ghosted.
+	   color-mix keeps it a true midpoint in both themes. */
+	color: color-mix(in srgb, var(--muted) 50%, var(--border));
+}
+
+/* -----------------------------------------------------------------------------
+   15. POST HEADER RHYTHM
+   Order in the article: h1 → .meta → .tags → content. Tighten the gaps between
+   them so the header reads as one unit, then open air before the body.
+   --------------------------------------------------------------------------- */
+article > .meta {
+	margin: 0 0 var(--space-3);
+}
+article > .tags {
+	margin: 0 0 var(--space-5);
+}
+
+/* -----------------------------------------------------------------------------
+   16. ACCESSIBILITY — reduced motion
+   These pages have no ambient animation by design; the only motion is the tiny
+   hover color/underline transitions. Honor the preference and drop even those.
+   --------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+	* {
+		transition: none !important;
+	}
+}
