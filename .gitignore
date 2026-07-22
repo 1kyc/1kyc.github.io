@@ -25,3 +25,6 @@ pnpm-debug.log*
 
 # Claude Code per-user local settings (MCP approvals, etc.)
 .claude/settings.local.json
+
+# Playwright MCP page snapshots (throwaway browser-tool artifacts)
+.playwright-mcp/

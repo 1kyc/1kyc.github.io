@@ -14,13 +14,15 @@
    THEME
      Dark is the base (:root) so the pages default to the maze's mood; a
      `@media (prefers-color-scheme: light)` block swaps in a warm-paper palette.
-     No toggle, no JS — the OS preference decides. Users with no preference get
-     dark (matching the landing).
+     The OS preference decides by default; a small vanilla theme-toggle in the
+     shared Layout can set `data-theme` on <html> for an explicit override that
+     wins over the media query (see section 1b + 3a). Users with no preference
+     and no explicit choice get dark (matching the landing).
 
    HAND-OFF MAP — what each selector targets (see the per-section notes for the
    details behind each):
      body                     page base: bg, ink, serif, min-height, reset
-     nav                      the Layout top nav (mono, quiet, current = "> ")
+     nav                      the Layout top nav (mono, quiet; current = accent + underline)
        nav a[aria-current]      the active page link (dev adds aria-current)
      main                     the centered reading column (measure + gutters)
      main h1–h4               serif headings, vertical-rhythm margins
@@ -67,9 +69,9 @@ body {
    --------------------------------------------------------------------------- */
 :root {
 	/* surfaces */
-	--bg:        #0a0c10;   /* page background, near-black with a blue cast     */
-	--surface:   #11151c;   /* code panels, chips, table headers, card tints    */
-	--border:    #1e2530;   /* hairlines, rules, table borders                  */
+	--bg:        #14181f;   /* page background, lifted charcoal with a blue cast */
+	--surface:   #1b212b;   /* code panels, chips, table headers, card tints    */
+	--border:    #28313f;   /* hairlines, rules, table borders                  */
 
 	/* text */
 	--text:      #c7d0dc;   /* primary reading ink (cool light gray)            */
@@ -78,6 +80,11 @@ body {
 
 	/* accents (identical to the maze) */
 	--accent:    #4ade80;   /* links, current-nav marker, list markers (green)  */
+	/* Derived hover/emphasis: push --accent toward the page ink (--text). Because
+	   --text flips per theme, this auto-deepens the green on light paper and
+	   brightens it on the dark bg — no per-theme value to keep in sync. Clears AA
+	   both ways (light ~7.4:1, dark ~10.4:1). */
+	--accent-hover: color-mix(in srgb, var(--accent) 60%, var(--text));
 	--accent-2:  #38bdf8;   /* reserved cool accent (parity with the maze)      */
 	--brand:     #fbbf24;   /* reserved warm gold (parity with the maze)        */
 
@@ -96,17 +103,16 @@ body {
 	   (Charter on macOS/iOS, Sitka/Cambria on Windows, Georgia everywhere).
 	   Noto Serif Variable now leads the stack (self-hosted via Fontsource, see
 	   Layout.astro); the OS faces remain the fallback tail if it fails to load. */
-	--font-serif: "Noto Serif Variable", Charter, "Bitstream Charter",
-		"Sitka Text", "Iowan Old Style", Cambria, Georgia, "Times New Roman",
-		serif;
+	--font-serif: "Noto Sans Variable", -apple-system, "Segoe UI", Roboto,
+		"Helvetica Neue", Arial, system-ui, sans-serif;
 	--font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code",
 		"Fira Code", Menlo, Consolas, "Liberation Mono", monospace;
 
 	/* type scale — ~1.24 ratio, one fluid step at the top (h1) */
 	--fs-xs:   0.8125rem;  /* 13px — meta, tags, captions                       */
 	--fs-sm:   0.9375rem;  /* 15px — code, tables, nav                          */
-	--fs-base: 1.09375rem; /* 17.5px — body copy (Noto Serif's tall x-height    */
-	                       /*          reads a touch larger, so trimmed from 18) */
+	--fs-base: 1.0625rem;  /* 17px — body copy (Noto Sans's tall x-height       */
+	                       /*        reads a touch larger, so trimmed from 18)  */
 	--fs-h4:   1.2rem;     /* 19px                                              */
 	--fs-h3:   1.45rem;    /* 23px                                              */
 	--fs-h2:   1.85rem;    /* 30px                                              */
@@ -114,6 +120,9 @@ body {
 
 	--lh-body:    1.7;     /* generous leading for long-form serif              */
 	--lh-heading: 1.25;
+
+	/* tracking — body running text only; em so it scales with each size        */
+	--track-body: -0.01em;
 
 	/* spacing rhythm (4px base) — maze's 1–5, plus a section-scale --space-6 */
 	--space-1: 0.25rem;
@@ -151,10 +160,10 @@ body {
    regional faces.
    --------------------------------------------------------------------------- */
 :lang(zh-Hans) {
-	--font-serif: "Noto Serif Variable", "Noto Serif SC", Georgia, serif;
+	--font-serif: "Noto Sans Variable", "Noto Sans SC", system-ui, sans-serif;
 }
 :lang(ja) {
-	--font-serif: "Noto Serif Variable", "Noto Serif JP", Georgia, serif;
+	--font-serif: "Noto Sans Variable", "Noto Sans JP", system-ui, sans-serif;
 }
 
 /* -----------------------------------------------------------------------------
@@ -163,9 +172,20 @@ body {
    that keeps the palette's blue cast, and the SAME green — darkened to a forest
    tone so it clears AA (4.5:1) as link text on paper. Only the color tokens
    change; every type/space/geometry token is inherited from :root above.
+
+   TWO light blocks, kept intentionally in sync:
+     • @media (prefers-color-scheme: light) :root:not([data-theme])  — OS light,
+       and ONLY when the reader hasn't made an explicit choice. The
+       :not([data-theme]) gate lets an explicit override always win (so OS-light
+       + data-theme="dark" correctly falls through to the base :root dark tokens).
+     • :root[data-theme="light"]                                      — explicit
+       light chosen via the toggle, regardless of OS preference.
+   Base :root (above) covers both explicit dark and OS-dark, so no separate
+   [data-theme="dark"] block is needed. Any edit to the light palette MUST be
+   mirrored across BOTH blocks below.
    --------------------------------------------------------------------------- */
 @media (prefers-color-scheme: light) {
-	:root {
+	:root:not([data-theme]) {
 		/* surfaces — warm ivory page, a deeper warm paper for panels/chips */
 		--bg:      #f4f1ea;
 		--surface: #eae4d8;
@@ -177,12 +197,34 @@ body {
 		--muted:   #7c8492;   /* decoration only */
 
 		/* accents — same hues, darkened for contrast on paper */
-		--accent:   #146c33;  /* forest green, ~5.6:1 on --bg for links */
+		--accent:   #1a7d3a;  /* brighter forest green, ~4.6:1 on --bg for links (AA) */
+		/* --accent-hover is derived from --accent in :root (mixes toward --text) */
 		--accent-2: #0e6f86;  /* deep cyan (parity) */
 		--brand:    #a45a10;  /* deep amber (parity) */
 
 		color-scheme: light;
 	}
+}
+
+/* Explicit light override — SAME tokens as the media block above; keep in sync. */
+:root[data-theme="light"] {
+	/* surfaces — warm ivory page, a deeper warm paper for panels/chips */
+	--bg:      #f4f1ea;
+	--surface: #eae4d8;
+	--border:  #d9d2c4;
+
+	/* text — cool dark slate ink (echoes the dark theme's blue cast) */
+	--text:    #1e242e;   /* ~14:1 on --bg */
+	--meta:    #545b66;   /* ~6:1  on --bg */
+	--muted:   #7c8492;   /* decoration only */
+
+	/* accents — same hues, darkened for contrast on paper */
+	--accent:   #1a7d3a;  /* brighter forest green, ~4.6:1 on --bg for links (AA) */
+	/* --accent-hover is derived from --accent in :root (mixes toward --text) */
+	--accent-2: #0e6f86;  /* deep cyan (parity) */
+	--brand:    #a45a10;  /* deep amber (parity) */
+
+	color-scheme: light;
 }
 
 /* -----------------------------------------------------------------------------
@@ -217,10 +259,10 @@ body {
 /* -----------------------------------------------------------------------------
    3. NAV (top of Layout.astro)
    Quiet, monospace furniture aligned to the reading column so its underline rule
-   sits flush with the content measure. Links rest in --muted and wake to accent;
-   the CURRENT page is marked with a leading "> " prompt in accent — the maze's
-   command-list idiom, reused as a "you are here" cue. The dev adds
-   aria-current="page" to the active link (see WIRING).
+   sits flush with the content measure. Links rest in --muted and wake to
+   --accent-hover; the CURRENT page is marked in accent ink with a non-color
+   underline cue (so "you are here" survives without relying on color alone). The
+   dev adds aria-current="page" to the active link (see WIRING).
    --------------------------------------------------------------------------- */
 nav {
 	display: flex;
@@ -245,15 +287,90 @@ nav a {
 }
 nav a:hover,
 nav a:focus-visible {
-	color: var(--accent);
+	color: var(--accent-hover);
 }
-/* current page: brighter ink + a leading accent prompt (kept out of the DOM) */
+/* current page: accent ink + a non-color underline cue (offset for legibility) */
 nav a[aria-current="page"] {
-	color: var(--text);
-}
-nav a[aria-current="page"]::before {
-	content: "> ";
 	color: var(--accent);
+	text-decoration: underline;
+	text-decoration-thickness: 1px;
+	text-underline-offset: 0.35em;
+}
+
+/* -----------------------------------------------------------------------------
+   3a. THEME TOGGLE — quiet nav furniture (light/dark switch)
+   A native <button class="theme-toggle"> that lives at the RIGHT end of the nav
+   (margin-inline-start:auto pushes it past the links). It reads as the same
+   monochrome furniture as the links: rests in --muted, wakes to --accent-hover
+   on hover/focus — no pill, no fill, no switch. Just an icon that changes color.
+
+   ICON = CURRENT THEME (moon while dark is active, sun while light is active),
+   mirroring the nav's "you are here" logic: the current-page link shows where
+   you ARE, so the toggle shows the theme you're IN. JS only flips the theme +
+   updates aria-label; the correct icon is chosen entirely by the CSS theme
+   selectors below, so it's right even before/without JS (no flash of wrong icon).
+
+   Hit area is a 2.25rem (36px) square for comfortable tapping; negative
+   margin-block folds that back into the text line so the nav's row height and
+   rhythm are unchanged. Tune --tt-size / the negative margin if the row shifts.
+   --------------------------------------------------------------------------- */
+.theme-toggle {
+	--tt-size: 2.25rem;              /* 36px hit area — tunable */
+	margin-inline-start: auto;       /* sit at the far right, after the links */
+	align-self: center;              /* center on the baseline-aligned nav row */
+
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	inline-size: var(--tt-size);
+	block-size: var(--tt-size);
+	margin-block: calc((var(--tt-size) - 1.5rem) / -2); /* absorb the extra height */
+
+	padding: 0;
+	border: none;
+	background: none;
+	border-radius: var(--radius);
+	color: var(--muted);             /* resting = same quiet ink as nav links */
+	cursor: pointer;
+
+	/* match the mono nav sizing so the 1em icon aligns with the link text */
+	font-family: var(--font-mono);
+	font-size: var(--fs-sm);
+	line-height: 1;
+	-webkit-tap-highlight-color: transparent;
+
+	transition: color var(--dur) var(--ease);
+}
+/* wake to the SAME hover ink as the links (the shared :focus-visible ring in
+   section 2 already handles the keyboard outline — nothing custom needed) */
+.theme-toggle:hover,
+.theme-toggle:focus-visible {
+	color: var(--accent-hover);
+}
+.theme-toggle svg {
+	inline-size: 1.05em;             /* ~1em, optically matched to the mono text */
+	block-size: 1.05em;
+	display: block;
+}
+
+/* --- icon visibility, driven PURELY by theme state (no JS) --------------------
+   Base (:root) is dark, so the moon shows by default. The light cases reveal the
+   sun. Covering all four resolutions:
+     • :root[data-theme="dark"]  → base rule (moon)          — explicit dark
+     • :root[data-theme="light"] → sun rule                  — explicit light
+     • no attr + OS dark         → base rule (moon)           — system dark
+     • no attr + OS light        → media rule (:not([data-theme])) → sun
+   The media rule is gated on :not([data-theme]) so an explicit choice always
+   beats the OS preference (e.g. OS light + data-theme="dark" keeps the moon). */
+.theme-toggle .icon-sun  { display: none; }
+.theme-toggle .icon-moon { display: block; }
+
+:root[data-theme="light"] .theme-toggle .icon-sun  { display: block; }
+:root[data-theme="light"] .theme-toggle .icon-moon { display: none; }
+
+@media (prefers-color-scheme: light) {
+	:root:not([data-theme]) .theme-toggle .icon-sun  { display: block; }
+	:root:not([data-theme]) .theme-toggle .icon-moon { display: none; }
 }
 
 /* -----------------------------------------------------------------------------
@@ -319,9 +436,9 @@ main :where(h4) {
    td/th, code, .meta, .tags) — those keep --font-mono via their own later rules. */
 main :where(p, li, blockquote, dd, dt) {
 	font-family: var(--font-serif);
-	/* Noto Serif's default space reads a touch tight at this size; a hair of
-	   word-spacing opens the inter-word gap without touching letter tracking. */
-	word-spacing: 0.03em;
+	/* Noto Sans reads a touch loose at body size; a hair of negative tracking
+	   tightens the letterfit. In em so it scales with each element's own size. */
+	letter-spacing: var(--track-body);
 }
 main :where(p) {
 	margin: 0 0 var(--space-4);
@@ -356,7 +473,8 @@ main :where(p, li, td, th, blockquote, dd, figcaption) a {
 		text-decoration-color var(--dur) var(--ease);
 }
 main :where(p, li, td, th, blockquote, dd, figcaption) a:hover {
-	text-decoration-color: var(--accent);
+	color: var(--accent-hover);
+	text-decoration-color: var(--accent-hover);
 }
 
 /* -----------------------------------------------------------------------------
@@ -444,12 +562,20 @@ main :where(pre) span {
 	color: var(--shiki-dark);
 	background: var(--shiki-dark-bg);
 }
+/* Mirror the section-1 palette gating: the OS-preference media query only
+   applies when no explicit choice is set, and an explicit [data-theme="light"]
+   override wins regardless of OS, so code panels follow the toggle not the OS. */
 @media (prefers-color-scheme: light) {
-	main :where(pre),
-	main :where(pre) span {
+	:root:not([data-theme]) main :where(pre),
+	:root:not([data-theme]) main :where(pre) span {
 		color: var(--shiki-light);
 		background: var(--shiki-light-bg);
 	}
+}
+:root[data-theme="light"] main :where(pre),
+:root[data-theme="light"] main :where(pre) span {
+	color: var(--shiki-light);
+	background: var(--shiki-light-bg);
 }
 
 /* -----------------------------------------------------------------------------
@@ -565,7 +691,7 @@ main :where(figcaption) {
 }
 .post-card h2 a:hover,
 .post-card h2 a:focus-visible {
-	color: var(--accent);
+	color: var(--accent-hover);
 }
 /* the card's bare <time> — mono meta, sits under the title */
 .post-card > time {
@@ -614,11 +740,17 @@ main :where(figcaption) {
 	background: var(--surface-soft);
 	border: 1px solid var(--border);
 	border-radius: 999px;
+	transition: color var(--dur) var(--ease);
+}
+.tags li:hover {
+	color: var(--accent-hover);
 }
 .tags li::before {
 	content: "#";
 	margin-right: 0.1em;
-	color: var(--muted);
+	/* midpoint between --muted and the pill edge --border: quiet but not ghosted.
+	   color-mix keeps it a true midpoint in both themes. */
+	color: color-mix(in srgb, var(--muted) 50%, var(--border));
 }
 
 /* -----------------------------------------------------------------------------
