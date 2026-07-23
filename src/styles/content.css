@@ -559,6 +559,15 @@ main :where(pre) code {
 	padding: 0;
 	color: inherit;
 }
+/* Expressive Code ships its <div class="expressive-code"> wrapper with NO block
+   margin, so it contributes nothing to the vertical rhythm. In this bottom-margin
+   rhythm a following paragraph has no top margin, so it would sit flush under the
+   panel while the paragraph above keeps its 1.5rem gap. Give the EC wrapper the
+   same margin as the fallback <pre> so the spacing is symmetric; adjacent margins
+   collapse, so this stays consistent with the p-to-p and p-to-heading rhythm. */
+main :where(.expressive-code) {
+	margin: var(--space-4) 0;
+}
 
 /* -----------------------------------------------------------------------------
    10a. CALLOUTS (remark-callouts → <aside class="callout callout-<type>">)
