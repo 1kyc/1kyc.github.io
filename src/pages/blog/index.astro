@@ -4,6 +4,7 @@ import Layout from '../../layouts/Layout.astro';
 import { excerpt } from '../../lib/excerpt';
 import { formatDate } from '../../lib/date';
 import { hasCjk } from '../../lib/cjk';
+import { readingTime } from '../../lib/reading-time';
 
 const posts = (await getCollection('blog'))
 	.filter((post) => import.meta.env.PROD ? !post.data.draft : true)
@@ -18,9 +19,12 @@ const cjk = posts.some((post) => hasCjk(post.data.title + ' ' + excerpt(post)));
 		{posts.map((post) => (
 			<li class="post-card" lang={post.data.lang}>
 				<h2><a href={`/blog/${post.id}`}>{post.data.title}</a></h2>
-				<time datetime={post.data.pubDate.toISOString()}>
-					{formatDate(post.data.pubDate)}
-				</time>
+				<p class="post-meta">
+					<time datetime={post.data.pubDate.toISOString()}>
+						{formatDate(post.data.pubDate)}
+					</time>
+					<span class="reading-time"> · {readingTime(post.body ?? '')}</span>
+				</p>
 				<p>{excerpt(post)}</p>
 				{post.data.tags.length > 0 && (
 					<ul class="tags">

@@ -1,0 +1,52 @@
+---
+// Toc.astro — a zero-JS table of contents built from render(post)'s headings.
+//
+// Renders a nested list of the post's h2/h3 headings (deeper levels are ignored
+// to keep the outline scannable). It nests h3s under their preceding h2 so the
+// list mirrors the document's structure. This component only renders the <nav>
+// list itself; [...slug].astro places it in BOTH a sticky sidebar (wide screens)
+// and a <details> disclosure (narrow), toggled purely by media query in
+// content.css. The caller decides whether to render it at all (≥ 3 headings).
+import type { MarkdownHeading } from '@astrojs/markdown-remark';
+
+interface Props {
+	/** Pre-filtered h2/h3 headings, in document order. The caller filters (it
+	    needs the count to decide whether to render a TOC at all), so this
+	    component trusts the prop rather than re-filtering. */
+	headings: MarkdownHeading[];
+	/** Accessible label for the nav landmark (only one instance is ever in the
+	    a11y tree — the other is display:none per the media-query breakpoint). */
+	'aria-label'?: string;
+}
+
+const { headings, 'aria-label': ariaLabel = 'Table of contents' } = Astro.props;
+
+// Group h3s under the h2 that precedes them. An h3 that appears before any h2
+// becomes a top-level entry so nothing is dropped.
+type Node = { heading: MarkdownHeading; children: MarkdownHeading[] };
+const tree: Node[] = [];
+for (const h of headings) {
+	if (h.depth === 2 || tree.length === 0) {
+		tree.push({ heading: h, children: [] });
+	} else {
+		tree[tree.length - 1].children.push(h);
+	}
+}
+---
+
+<nav class="toc" aria-label={ariaLabel}>
+	<ol class="toc-list">
+		{tree.map(({ heading, children }) => (
+			<li>
+				<a href={`#${heading.slug}`}>{heading.text}</a>
+				{children.length > 0 && (
+					<ol class="toc-sublist">
+						{children.map((child) => (
+							<li><a href={`#${child.slug}`}>{child.text}</a></li>
+						))}
+					</ol>
+				)}
+			</li>
+		))}
+	</ol>
+</nav>
