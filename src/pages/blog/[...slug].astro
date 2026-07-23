@@ -1,17 +1,17 @@
 ---
 import type { GetStaticPaths } from 'astro';
-import { getCollection, render } from 'astro:content';
+import { render } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
 import Toc from '../../components/Toc.astro';
+import { getPublishedPosts } from '../../lib/posts';
 import { formatDate } from '../../lib/date';
 import { hasCjk } from '../../lib/cjk';
 import { hasMath } from '../../lib/math';
 import { readingTime } from '../../lib/reading-time';
+import { tagSlug } from '../../lib/tags';
 
 export const getStaticPaths = (async () => {
-	const posts = (await getCollection('blog')).filter((post) =>
-		import.meta.env.PROD ? !post.data.draft : true,
-	);
+	const posts = await getPublishedPosts();
 	return posts.map((post) => ({
 		params: { slug: post.id },
 		props: { post },
@@ -36,10 +36,12 @@ const showToc = tocHeadings.length >= 3;
 				<Toc headings={tocHeadings} />
 			</aside>
 		)}
-		<article>
+		{/* data-pagefind-body scopes Pagefind's index to post articles only, so
+		    search never returns nav chrome or non-blog pages (see /blog/search). */}
+		<article data-pagefind-body>
 			<h1>{post.data.title}</h1>
 			<p class="meta">
-				<time datetime={post.data.pubDate.toISOString()}>
+				<time datetime={post.data.pubDate.toISOString()} data-pagefind-meta="date">
 					{formatDate(post.data.pubDate)}
 				</time>
 				<span class="reading-time"> · {readingTime(post.body ?? '')}</span>
@@ -52,8 +54,10 @@ const showToc = tocHeadings.length >= 3;
 				)}
 			</p>
 			{post.data.tags.length > 0 && (
-				<ul class="tags">
-					{post.data.tags.map((tag) => <li>{tag}</li>)}
+				<ul class="tags" data-pagefind-ignore>
+					{post.data.tags.map((tag) => (
+						<li><a href={`/blog/tags/${tagSlug(tag)}`}>{tag}</a></li>
+					))}
 				</ul>
 			)}
 			{showToc && (

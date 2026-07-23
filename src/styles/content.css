@@ -830,20 +830,30 @@ main :where(figcaption) {
 	padding: 0;
 }
 .tags li {
+	display: flex;
+}
+/* Each chip is a link to its /blog/tags/<slug> page; the whole pill is the hit
+   target. The interactive styling lives on the <a> (was on the <li> when chips
+   were inert text) so hover/focus read as a link. */
+.tags li a {
+	display: inline-block;
 	font-family: var(--font-mono);
 	font-size: var(--fs-xs);
 	letter-spacing: 0.04em;
 	color: var(--meta);
+	text-decoration: none;
 	padding: 0.15em 0.6em;
 	background: var(--surface-soft);
 	border: 1px solid var(--border);
 	border-radius: 999px;
-	transition: color var(--dur) var(--ease);
+	transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
-.tags li:hover {
+.tags li a:hover,
+.tags li a:focus-visible {
 	color: var(--accent-hover);
+	border-color: var(--accent-line);
 }
-.tags li::before {
+.tags li a::before {
 	content: "#";
 	margin-right: 0.1em;
 	/* midpoint between --muted and the pill edge --border: quiet but not ghosted.
@@ -998,6 +1008,155 @@ article > .tags {
 		padding-inline-start: var(--space-3);
 		border-inline-start: 1px solid var(--border);
 	}
+}
+
+/* -----------------------------------------------------------------------------
+   18. DISCOVERY — blog subnav + tag index (/blog/tags)
+   .blog-nav — the quiet mono link row under an h1 (Tags · Search, back links).
+   .tag-cloud — the browse-all-tags grid: each tag a pill carrying its post count.
+   Echoes the .tags chip look but sized up to a tappable browse target.
+   --------------------------------------------------------------------------- */
+.blog-nav {
+	font-family: var(--font-mono);
+	font-size: var(--fs-xs);
+	letter-spacing: 0.04em;
+	color: var(--meta);
+	margin: calc(-1 * var(--space-3)) 0 var(--space-5);
+}
+.blog-nav a {
+	color: var(--meta);
+	text-decoration: none;
+	transition: color var(--dur) var(--ease);
+}
+.blog-nav a:hover,
+.blog-nav a:focus-visible {
+	color: var(--accent-hover);
+}
+
+.tag-cloud {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-3);
+	list-style: none;
+	margin: var(--space-5) 0 0;
+	padding: 0;
+}
+.tag-cloud a {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 0.5em;
+	font-family: var(--font-mono);
+	font-size: var(--fs-sm);
+	letter-spacing: 0.02em;
+	color: var(--text);
+	text-decoration: none;
+	padding: 0.3em 0.8em;
+	background: var(--surface-soft);
+	border: 1px solid var(--border);
+	border-radius: 999px;
+	transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.tag-cloud a:hover,
+.tag-cloud a:focus-visible {
+	color: var(--accent-hover);
+	border-color: var(--accent-line);
+}
+.tag-cloud__name::before {
+	content: "#";
+	margin-right: 0.05em;
+	color: color-mix(in srgb, var(--muted) 50%, var(--border));
+}
+.tag-cloud__count {
+	font-size: var(--fs-xs);
+	color: var(--muted);
+	font-variant-numeric: tabular-nums;
+}
+
+/* -----------------------------------------------------------------------------
+   19. DISCOVERY — search (/blog/search, the one interactive island)
+   <BlogSearch> renders a search input + a results list; Pagefind supplies the
+   data and the <mark>-wrapped excerpt HTML. Styled to sit inside the reading
+   column like the rest of the content — no framework-default search chrome.
+   --------------------------------------------------------------------------- */
+.blog-search {
+	margin-top: var(--space-5);
+}
+.blog-search__input {
+	width: 100%;
+	box-sizing: border-box;
+	font-family: var(--font-serif);
+	font-size: var(--fs-base);
+	color: var(--text);
+	background: var(--surface-soft);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	padding: 0.6em 0.8em;
+	transition: border-color var(--dur) var(--ease);
+}
+.blog-search__input:focus-visible {
+	outline: none;
+	border-color: var(--accent-line);
+}
+.blog-search__input::placeholder {
+	color: var(--muted);
+}
+.blog-search__status {
+	font-family: var(--font-mono);
+	font-size: var(--fs-xs);
+	color: var(--muted);
+	margin: var(--space-4) 0 0;
+}
+.blog-search__results {
+	list-style: none;
+	margin: var(--space-4) 0 0;
+	padding: 0;
+}
+.blog-search__result {
+	border-bottom: 1px solid var(--border);
+}
+.blog-search__result:last-child {
+	border-bottom: none;
+}
+.blog-search__result a {
+	display: block;
+	text-decoration: none;
+	color: var(--text);
+	padding-block: var(--space-4);
+	transition: color var(--dur) var(--ease);
+}
+.blog-search__title {
+	display: block;
+	font-size: var(--fs-h3);
+	font-weight: 600;
+	line-height: var(--lh-heading);
+	transition: color var(--dur) var(--ease);
+}
+.blog-search__result a:hover .blog-search__title,
+.blog-search__result a:focus-visible .blog-search__title {
+	color: var(--accent-hover);
+}
+.blog-search__excerpt {
+	display: block;
+	margin-top: var(--space-2);
+	color: var(--muted);
+	font-size: var(--fs-sm);
+	line-height: var(--lh-body);
+}
+/* Pagefind wraps matched terms in <mark>; tint it to the accent without a loud
+   highlighter block. */
+.blog-search__excerpt mark {
+	background: var(--accent-soft);
+	color: var(--text);
+	border-radius: 3px;
+	padding: 0 0.15em;
+}
+.blog-search__date {
+	display: block;
+	margin-top: var(--space-2);
+	font-family: var(--font-mono);
+	font-size: var(--fs-xs);
+	letter-spacing: 0.04em;
+	color: var(--meta);
 }
 
 /* -----------------------------------------------------------------------------

@@ -53,6 +53,7 @@ const isActive = (href: string) =>
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<link rel="icon" href="/favicon.ico" />
 		<meta name="generator" content={Astro.generator} />
+		<link rel="alternate" type="application/rss+xml" title="1kyc — Blog" href="/rss.xml" />
 		<title>{title}</title>
 		{cjk && <CjkFonts />}
 		{math && <KatexStyles />}
@@ -77,7 +78,12 @@ const isActive = (href: string) =>
 				</svg>
 			</button>
 		</nav>
-		<main class:list={{ wide }}>
+		{/* Pagefind: a page with no data-pagefind-body is indexed in full, so with
+		    zero published posts the whole site (incl. the maze root) would leak into
+		    search. Ignore <main> by default; the post page re-includes its <article>
+		    with data-pagefind-body, which overrides this ancestor ignore. Net: only
+		    post articles are ever indexed, in every state. */}
+		<main class:list={{ wide }} data-pagefind-ignore>
 			<slot />
 		</main>
 		{/* Toggle behavior. A bundled Astro <script> is an ES module = deferred,

@@ -1,37 +1,27 @@
 ---
-import { getCollection } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
+import PostCard from '../../components/PostCard.astro';
+import { getSortedPosts } from '../../lib/posts';
 import { excerpt } from '../../lib/excerpt';
-import { formatDate } from '../../lib/date';
 import { hasCjk } from '../../lib/cjk';
-import { readingTime } from '../../lib/reading-time';
 
-const posts = (await getCollection('blog'))
-	.filter((post) => import.meta.env.PROD ? !post.data.draft : true)
-	.sort((a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime());
+const posts = await getSortedPosts();
 
 const cjk = posts.some((post) => hasCjk(post.data.title + ' ' + excerpt(post)));
 ---
 
 <Layout title="Blog" cjk={cjk}>
 	<h1>Blog</h1>
-	<ul class="post-list">
-		{posts.map((post) => (
-			<li class="post-card" lang={post.data.lang}>
-				<h2><a href={`/blog/${post.id}`}>{post.data.title}</a></h2>
-				<p class="post-meta">
-					<time datetime={post.data.pubDate.toISOString()}>
-						{formatDate(post.data.pubDate)}
-					</time>
-					<span class="reading-time"> · {readingTime(post.body ?? '')}</span>
-				</p>
-				<p>{excerpt(post)}</p>
-				{post.data.tags.length > 0 && (
-					<ul class="tags">
-						{post.data.tags.map((tag) => <li>{tag}</li>)}
-					</ul>
-				)}
-			</li>
-		))}
-	</ul>
+	<p class="blog-nav">
+		<a href="/blog/tags">Tags</a>
+		<span aria-hidden="true"> · </span>
+		<a href="/blog/search">Search</a>
+	</p>
+	{posts.length > 0 ? (
+		<ul class="post-list">
+			{posts.map((post) => <PostCard post={post} />)}
+		</ul>
+	) : (
+		<p>No posts yet.</p>
+	)}
 </Layout>

@@ -1,0 +1,29 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { getTags } from '../../../lib/tags';
+import { hasCjk } from '../../../lib/cjk';
+
+const tags = await getTags();
+const cjk = tags.some((t) => hasCjk(t.tag));
+---
+
+<Layout title="Tags" cjk={cjk}>
+	<h1>Tags</h1>
+	<p class="blog-nav">
+		<a href="/blog">← All posts</a>
+	</p>
+	{tags.length > 0 ? (
+		<ul class="tag-cloud">
+			{tags.map(({ tag, slug, count }) => (
+				<li>
+					<a href={`/blog/tags/${slug}`}>
+						<span class="tag-cloud__name">{tag}</span>
+						<span class="tag-cloud__count">{count}</span>
+					</a>
+				</li>
+			))}
+		</ul>
+	) : (
+		<p>No tags yet.</p>
+	)}
+</Layout>

@@ -1,0 +1,31 @@
+---
+import type { GetStaticPaths } from 'astro';
+import Layout from '../../../layouts/Layout.astro';
+import PostCard from '../../../components/PostCard.astro';
+import { getTags, getPostsByTag } from '../../../lib/tags';
+import { excerpt } from '../../../lib/excerpt';
+import { hasCjk } from '../../../lib/cjk';
+
+export const getStaticPaths = (async () => {
+	const tags = await getTags();
+	return Promise.all(
+		tags.map(async ({ tag, slug }) => ({
+			params: { tag: slug },
+			props: { tag, posts: await getPostsByTag(slug) },
+		})),
+	);
+}) satisfies GetStaticPaths;
+
+const { tag, posts } = Astro.props;
+const cjk = posts.some((post) => hasCjk(post.data.title + ' ' + excerpt(post))) || hasCjk(tag);
+---
+
+<Layout title={`Tag: ${tag}`} cjk={cjk}>
+	<h1>#{tag}</h1>
+	<p class="blog-nav">
+		<a href="/blog/tags">← All tags</a>
+	</p>
+	<ul class="post-list">
+		{posts.map((post) => <PostCard post={post} />)}
+	</ul>
+</Layout>

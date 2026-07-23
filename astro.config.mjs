@@ -2,6 +2,8 @@
 import { defineConfig } from 'astro/config';
 import preact from '@astrojs/preact';
 import mdx from '@astrojs/mdx';
+import sitemap from '@astrojs/sitemap';
+import pagefind from 'astro-pagefind';
 import expressiveCode from 'astro-expressive-code';
 
 // Content-pipeline plugins (see src/lib/*).
@@ -10,9 +12,13 @@ import rehypeKatex from 'rehype-katex';
 import remarkDirective from 'remark-directive';
 import { remarkCallouts } from './src/lib/remark-callouts';
 
+// Canonical origin — the single source for `site` and anything derived from it
+// (e.g. the sitemap filter below), so they can't drift apart.
+const SITE = 'https://1kyc.github.io';
+
 // https://astro.build/config
 export default defineConfig({
-	site: 'https://1kyc.github.io',
+	site: SITE,
 	// Bind the dev/preview server to all interfaces so the port is reachable
 	// through the devcontainer's forwarded port (it otherwise binds IPv6-only).
 	server: { host: true },
@@ -61,5 +67,14 @@ export default defineConfig({
 		}),
 		preact(),
 		mdx(),
+		// Discovery (Phase 2): a sitemap over every built page, and Pagefind, which
+		// indexes the static HTML after build (data-pagefind-body scopes it to blog
+		// post articles) and serves /pagefind/ in dev + preview for <BlogSearch>.
+		sitemap({
+			// Exclude the maze root: it's the puzzle gate, deliberately NOT meant for
+			// clean discovery (the real homepage is /home). Content pages stay in.
+			filter: (page) => page !== `${SITE}/`,
+		}),
+		pagefind(),
 	],
 });
