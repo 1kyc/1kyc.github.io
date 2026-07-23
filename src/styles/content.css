@@ -29,7 +29,10 @@
      main p / strong / em     body copy + emphasis
      main a (in text flow)    accent links with a considered underline
      main code (inline)       mono chip on a surface tint
-     main pre                 fenced code panel (chrome; Shiki paints the bg)
+     main pre                 bare fallback for non-EC <pre> (Expressive Code
+                              owns fenced code + ships its own scoped styles)
+     .callout / .callout-*    :::note/tip/warning/important/caution admonitions
+     .toc / .toc-sidebar      table of contents (sidebar wide / <details> mobile)
      main blockquote          quiet, distinct: left rule + surface tint + italic
      main ul / ol / li        lists, nested lists, accent ::marker
      main table / th / td     mono data grid; scrolls in its own box on mobile
@@ -517,13 +520,16 @@ main :where(blockquote) :where(p) {
 
 /* -----------------------------------------------------------------------------
    10. CODE — inline + fenced
-   Inline code is a mono chip on a surface tint. The fenced <pre> is a surface
-   PANEL: this rule owns the chrome (border, radius, padding, horizontal scroll).
-   NOTE on the background: Astro's built-in Shiki writes an inline
-   background-color onto <pre> (its theme's bg), which wins over the fallback
-   below. In dark mode that's fine — a dark panel reads correctly. For a panel
-   that tracks BOTH themes, configure dual Shiki themes (see WIRING); the
-   background var() here is the fallback for when Shiki emits no inline bg.
+   Inline code is a mono chip on a surface tint. Fenced code is now owned by
+   Expressive Code (astro.config.mjs): it renders each block as
+   `<figure class="frame">…<pre>` inside a `<div class="expressive-code">` and
+   ships its OWN scoped stylesheet (title bar, line highlight, diff, copy button)
+   whose selectors outrank the low-specificity :where() fallback below. EC's dual
+   theme (github-dark base + github-light) tracks the SAME [data-theme] attribute
+   and prefers-color-scheme gating as this palette, so panels follow the toggle;
+   a few EC style tokens are mapped to our vars (--border, --radius, mono font) in
+   the integration config. The `main :where(pre)` rule below is a bare fallback
+   for any non-EC <pre> (EC's higher-specificity rules win on its own blocks).
    --------------------------------------------------------------------------- */
 main :where(:not(pre) > code) {
 	font-family: var(--font-mono);
@@ -544,7 +550,7 @@ main :where(pre) {
 	font-size: var(--fs-sm);
 	line-height: 1.6;
 }
-/* inside a fence, code is transparent — Shiki's token spans carry the color */
+/* inside a non-EC fence, keep code mono and let the <pre> carry the surface */
 main :where(pre) code {
 	font-family: var(--font-mono);
 	font-size: inherit;
@@ -553,30 +559,105 @@ main :where(pre) code {
 	padding: 0;
 	color: inherit;
 }
-/* dual-theme Shiki: astro.config.mjs sets themes {light,dark} + defaultColor
-   false, so Shiki emits --shiki-light / --shiki-dark vars instead of a single
-   inline background. Bind them to prefers-color-scheme so the panel tracks the
-   page theme (dark is the base to match :root). */
-main :where(pre),
-main :where(pre) span {
-	color: var(--shiki-dark);
-	background: var(--shiki-dark-bg);
+
+/* -----------------------------------------------------------------------------
+   10a. CALLOUTS (remark-callouts → <aside class="callout callout-<type>">)
+   Five semantic admonitions authored as `:::note` / `:::tip` / `:::warning` /
+   `:::important` / `:::caution` container directives.
+
+   GitHub-alerts style, adapted to the reading room: NO filled bar. Each callout
+   is signalled by three quiet cues, not a heavy panel —
+     • a 3px colored LEFT rule (var(--co)),
+     • a mono, uppercase TITLE ROW whose octicon-style icon + label take var(--co),
+     • a VERY faint per-type tint of the page (6% of var(--co) over --bg).
+   Body copy stays on the reading surface in the normal --text ink. Every hue is
+   picked per-theme to clear AA (≥4.5:1) for the label/icon on its tinted surface
+   in BOTH themes; the 6%-srgb tint never drops body text below ~10:1 (dark) or
+   ~12:1 (light). Five distinct hues — note=blue, tip=green, important=violet,
+   warning=gold, caution=red — so warning and important no longer collide.
+
+   Icons: monoline 16×16 SVGs inlined here (their single source of truth) as
+   URL-encoded data-URI MASKS. --co-icon carries the mask; the ::before paints it
+   with `background: var(--co)`, so each icon inherits the per-type / per-theme
+   color with zero JS and no extra requests. Zero motion.
+   --------------------------------------------------------------------------- */
+main :where(.callout) {
+	/* --co is the per-type accent; --co-icon the per-type mask. Set below. */
+	--co: var(--accent);
+	--co-icon: none;
+	margin: var(--space-4) 0;
+	padding: var(--space-3) var(--space-4);
+	border-inline-start: 3px solid var(--co);
+	border-radius: 0 var(--radius) var(--radius) 0;
+	/* faint wash of the type hue over the page — kept low so body text stays AA */
+	background: color-mix(in srgb, var(--co) 6%, var(--bg));
+	color: var(--text);
 }
-/* Mirror the section-1 palette gating: the OS-preference media query only
-   applies when no explicit choice is set, and an explicit [data-theme="light"]
-   override wins regardless of OS, so code panels follow the toggle not the OS. */
+main :where(.callout) > :first-child {
+	margin-top: 0;
+}
+main :where(.callout) > :last-child {
+	margin-bottom: 0;
+}
+main :where(.callout-title) {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	font-family: var(--font-mono);
+	font-size: var(--fs-xs);
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--co);
+	margin: 0 0 var(--space-2);
+}
+main :where(.callout-title)::before {
+	content: "";
+	flex: none;
+	width: 1.15em;
+	height: 1.15em;
+	background: var(--co);
+	-webkit-mask: var(--co-icon) center / contain no-repeat;
+	mask: var(--co-icon) center / contain no-repeat;
+}
+/* per-type accent (dark base) + icon mask. note reuses --accent-2, which flips
+   correctly and clears AA in both themes with no override. tip and warning reuse
+   --accent / --brand for the dark base but are overridden in light (below) for AA
+   on the tint. important + caution carry hues the base palette doesn't hold. */
+main :where(.callout-note) {
+	--co: var(--accent-2);
+	--co-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='8' cy='8' r='6.3'/%3E%3Cpath d='M8 7.4v4'/%3E%3Ccircle cx='8' cy='4.7' r='.55' fill='currentColor' stroke='none'/%3E%3C/svg%3E");
+}
+main :where(.callout-tip) {
+	--co: var(--accent);
+	--co-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 1.6a4.6 4.6 0 0 0-2.75 8.28c.53.4.85 1.02.85 1.7v.02h3.8v-.02c0-.68.32-1.3.85-1.7A4.6 4.6 0 0 0 8 1.6Z'/%3E%3Cpath d='M6.35 13.2h3.3M6.95 14.6h2.1'/%3E%3C/svg%3E");
+}
+main :where(.callout-important) {
+	--co: #b291f7;
+	--co-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.4 3.6a1 1 0 0 1 1-1h9.2a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H6.6L3.6 13.6v-3H3.4a1 1 0 0 1-1-1Z'/%3E%3Cpath d='M8 4.9v2.9'/%3E%3Ccircle cx='8' cy='9.5' r='.55' fill='currentColor' stroke='none'/%3E%3C/svg%3E");
+}
+main :where(.callout-warning) {
+	--co: var(--brand);
+	--co-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 2.1 14.4 13a.6.6 0 0 1-.52.9H2.12a.6.6 0 0 1-.52-.9Z'/%3E%3Cpath d='M8 6.3v3.3'/%3E%3Ccircle cx='8' cy='11.4' r='.55' fill='currentColor' stroke='none'/%3E%3C/svg%3E");
+}
+main :where(.callout-caution) {
+	--co: #f47a6b;
+	--co-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5.42 1.7h5.16a1 1 0 0 1 .7.3l3.42 3.42a1 1 0 0 1 .3.7v5.16a1 1 0 0 1-.3.7l-3.42 3.42a1 1 0 0 1-.7.3H5.42a1 1 0 0 1-.7-.3L1.3 12.28a1 1 0 0 1-.3-.7V6.42a1 1 0 0 1 .3-.7L4.72 2a1 1 0 0 1 .7-.3Z'/%3E%3Cpath d='M8 4.9v3.4'/%3E%3Ccircle cx='8' cy='10.7' r='.55' fill='currentColor' stroke='none'/%3E%3C/svg%3E");
+}
+/* light-theme accents — darkened per hue so the label/icon clears AA on the
+   ivory-tinted surface (only note needs no override — --accent-2 flips on its
+   own). Mirror ANY change across BOTH light blocks, per the palette convention
+   above. */
 @media (prefers-color-scheme: light) {
-	:root:not([data-theme]) main :where(pre),
-	:root:not([data-theme]) main :where(pre) span {
-		color: var(--shiki-light);
-		background: var(--shiki-light-bg);
-	}
+	:root:not([data-theme]) main :where(.callout-tip)       { --co: #146b30; }
+	:root:not([data-theme]) main :where(.callout-important) { --co: #6b3fc0; }
+	:root:not([data-theme]) main :where(.callout-warning)   { --co: #8a5410; }
+	:root:not([data-theme]) main :where(.callout-caution)   { --co: #b3382a; }
 }
-:root[data-theme="light"] main :where(pre),
-:root[data-theme="light"] main :where(pre) span {
-	color: var(--shiki-light);
-	background: var(--shiki-light-bg);
-}
+:root[data-theme="light"] main :where(.callout-tip)       { --co: #146b30; }
+:root[data-theme="light"] main :where(.callout-important) { --co: #6b3fc0; }
+:root[data-theme="light"] main :where(.callout-warning)   { --co: #8a5410; }
+:root[data-theme="light"] main :where(.callout-caution)   { --co: #b3382a; }
 
 /* -----------------------------------------------------------------------------
    11. TABLES
@@ -693,13 +774,16 @@ main :where(figcaption) {
 .post-card h2 a:focus-visible {
 	color: var(--accent-hover);
 }
-/* the card's bare <time> — mono meta, sits under the title */
-.post-card > time {
-	display: block;
+/* the card's meta line — mono date + "· N min read", sits under the title */
+.post-card .post-meta {
+	margin: 0;
 	font-family: var(--font-mono);
 	font-size: var(--fs-xs);
 	letter-spacing: 0.04em;
 	color: var(--meta);
+}
+.post-card .post-meta .reading-time {
+	color: var(--muted);
 }
 .post-card p {
 	margin: var(--space-2) 0 0;
@@ -721,6 +805,11 @@ main :where(figcaption) {
 }
 .meta .updated {
 	color: var(--muted);
+}
+/* "· N min read" — the same quiet secondary ink as the date it trails */
+.meta .reading-time {
+	color: var(--meta);
+	white-space: nowrap;
 }
 
 .tags {
@@ -766,7 +855,144 @@ article > .tags {
 }
 
 /* -----------------------------------------------------------------------------
-   16. ACCESSIBILITY — reduced motion
+   16. TABLE OF CONTENTS + POST LAYOUT
+   [...slug].astro renders the TOC (from render()'s headings, only when ≥3 h2/h3)
+   in TWO places wrapped by `.post-layout`: a `.toc-disclosure` <details> at the
+   top of the article (the mobile form) and a `.toc-sidebar` <aside> beside it
+   (the wide form). A single media-query breakpoint swaps which one shows — no JS.
+
+   MOBILE (default, < 74rem): block flow. Because .post-layout wraps EVERY post
+   (TOC or not) but the grid is gated behind `main.wide`, a plain post stays a
+   normal block and its <article> fills the centered --measure column from
+   section 4. For TOC posts the <details> shows; the sidebar is hidden.
+
+   WIDE (≥ 74rem, only when there IS a TOC — main gets .wide only then):
+   .post-layout becomes a SYMMETRIC 3-column grid —
+       [ 1fr ][ min(100%, --measure) ][ 1fr ]
+   so the reading column sits dead-centre in <main> (and <main> is centred on the
+   page), giving the SAME horizontal centre as /blog and as TOC-less posts:
+   moving between them never shifts the body text sideways. The article is pinned
+   to the centre track (col 2) and the sticky TOC to the RIGHT rail (col 3); the
+   empty left 1fr (col 1) mirrors it. Article never exceeds --measure. main.wide
+   is sized to seat the full measure PLUS a mirrored rail on each side:
+   calc(--measure + 2*(--toc-w + --toc-gap)) = 44 + 2*(13+1.5) = 73rem, so the
+   74rem breakpoint is the first width where the symmetric layout fits without
+   shrinking the text. Below 74rem the sidebar hides and the disclosure returns.
+   --------------------------------------------------------------------------- */
+:root {
+	--toc-w: 13rem;             /* fixed sidebar track width (wide only) */
+	--toc-gap: var(--space-4);  /* gap between article and sidebar */
+}
+
+/* the shared TOC list (used by both the sidebar and the disclosure) */
+.toc-list,
+.toc-sublist {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	font-family: var(--font-mono);
+	font-size: var(--fs-xs);
+	letter-spacing: 0.02em;
+	line-height: 1.5;
+}
+.toc-sublist {
+	padding-inline-start: var(--space-3);  /* indent h3s under their h2 */
+}
+.toc-list li {
+	margin-block: var(--space-1);
+}
+.toc a {
+	color: var(--meta);
+	text-decoration: none;
+	transition: color var(--dur) var(--ease);
+}
+.toc a:hover,
+.toc a:focus-visible {
+	color: var(--accent-hover);
+}
+
+/* MOBILE disclosure — a quiet native <details> at the top of the article */
+.toc-disclosure {
+	margin: 0 0 var(--space-5);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	background: var(--surface-soft);
+}
+.toc-disclosure > summary {
+	cursor: pointer;
+	padding: var(--space-2) var(--space-3);
+	font-family: var(--font-mono);
+	font-size: var(--fs-xs);
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--meta);
+}
+.toc-disclosure[open] > summary {
+	border-bottom: 1px solid var(--border);
+	margin-bottom: var(--space-2);
+}
+.toc-disclosure > .toc {
+	padding: 0 var(--space-3) var(--space-3);
+}
+
+/* the sidebar form is hidden until there's room for it */
+.toc-sidebar {
+	display: none;
+}
+
+@media (min-width: 74rem) {
+	/* widen <main> to seat the full measure PLUS a mirrored rail on each side, so
+	   the centre track keeps its --measure while the grid stays centred. */
+	main.wide {
+		max-width: calc(var(--measure) + 2 * (var(--toc-w) + var(--toc-gap)));
+	}
+	/* Gated on main.wide: only TOC posts get the grid. TOC-less posts keep
+	   .post-layout as a plain block, so their <article> fills the centered
+	   --measure column exactly like a pre-Phase-1 post. */
+	main.wide .post-layout {
+		display: grid;
+		/* symmetric 3 cols: empty · measure · TOC rail. The two 1fr edges mirror
+		   each other, so the measure column is centred in <main>. */
+		grid-template-columns: minmax(0, 1fr) min(100%, var(--measure)) minmax(0, 1fr);
+		gap: var(--toc-gap);
+		align-items: start;
+	}
+	/* explicit column AND row so DOM order (aside-first, for reading order)
+	   doesn't matter: both sit on row 1 — article dead-centre, TOC in the right
+	   rail. grid-row is required because the aside precedes the article in the
+	   DOM but lands in a LATER column (3 vs 2); without a pinned row, grid's
+	   sparse auto-placement can't back-track to column 2 on row 1 and drops the
+	   article to row 2, stacking it BELOW the sidebar. */
+	main.wide .post-layout > article {
+		grid-column: 2;
+		grid-row: 1;
+		min-width: 0;
+		max-width: var(--measure);
+	}
+	main.wide .post-layout > .toc-sidebar {
+		grid-column: 3;
+		grid-row: 1;
+		justify-self: start;
+		width: var(--toc-w);
+	}
+	/* swap the two forms: sidebar in, disclosure out */
+	.toc-disclosure {
+		display: none;
+	}
+	.toc-sidebar {
+		display: block;
+		position: sticky;
+		top: var(--space-4);
+		max-height: calc(100dvh - 2 * var(--space-4));
+		overflow-y: auto;
+		/* rule sits on the LEFT edge now — between the article and the right rail */
+		padding-inline-start: var(--space-3);
+		border-inline-start: 1px solid var(--border);
+	}
+}
+
+/* -----------------------------------------------------------------------------
+   17. ACCESSIBILITY — reduced motion
    These pages have no ambient animation by design; the only motion is the tiny
    hover color/underline transitions. Honor the preference and drop even those.
    --------------------------------------------------------------------------- */

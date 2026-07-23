@@ -2,8 +2,11 @@
 import type { GetStaticPaths } from 'astro';
 import { getCollection, render } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
+import Toc from '../../components/Toc.astro';
 import { formatDate } from '../../lib/date';
 import { hasCjk } from '../../lib/cjk';
+import { hasMath } from '../../lib/math';
+import { readingTime } from '../../lib/reading-time';
 
 export const getStaticPaths = (async () => {
 	const posts = (await getCollection('blog')).filter((post) =>
@@ -16,30 +19,50 @@ export const getStaticPaths = (async () => {
 }) satisfies GetStaticPaths;
 
 const { post } = Astro.props;
-const { Content } = await render(post);
+const { Content, headings } = await render(post);
 const cjk = hasCjk(post.body ?? '');
+const math = hasMath(post.body ?? '');
+
+// Table of contents: only when there are 3+ section headings (h2/h3), matching
+// the outline the Toc component builds. Below that threshold a TOC is noise.
+const tocHeadings = headings.filter((h) => h.depth === 2 || h.depth === 3);
+const showToc = tocHeadings.length >= 3;
 ---
 
-<Layout title={post.data.title} lang={post.data.lang} cjk={cjk}>
-	<article>
-		<h1>{post.data.title}</h1>
-		<p class="meta">
-			<time datetime={post.data.pubDate.toISOString()}>
-				{formatDate(post.data.pubDate)}
-			</time>
-			{post.data.updatedDate && (
-				<span class="updated">
-					{' '}(updated <time datetime={post.data.updatedDate.toISOString()}>
-						{formatDate(post.data.updatedDate)}
-					</time>)
-				</span>
-			)}
-		</p>
-		{post.data.tags.length > 0 && (
-			<ul class="tags">
-				{post.data.tags.map((tag) => <li>{tag}</li>)}
-			</ul>
+<Layout title={post.data.title} lang={post.data.lang} cjk={cjk} math={math} wide={showToc}>
+	<div class="post-layout">
+		{showToc && (
+			<aside class="toc-sidebar">
+				<Toc headings={tocHeadings} />
+			</aside>
 		)}
-		<Content />
-	</article>
+		<article>
+			<h1>{post.data.title}</h1>
+			<p class="meta">
+				<time datetime={post.data.pubDate.toISOString()}>
+					{formatDate(post.data.pubDate)}
+				</time>
+				<span class="reading-time"> · {readingTime(post.body ?? '')}</span>
+				{post.data.updatedDate && (
+					<span class="updated">
+						{' '}(updated <time datetime={post.data.updatedDate.toISOString()}>
+							{formatDate(post.data.updatedDate)}
+						</time>)
+					</span>
+				)}
+			</p>
+			{post.data.tags.length > 0 && (
+				<ul class="tags">
+					{post.data.tags.map((tag) => <li>{tag}</li>)}
+				</ul>
+			)}
+			{showToc && (
+				<details class="toc-disclosure">
+					<summary>Contents</summary>
+					<Toc headings={tocHeadings} />
+				</details>
+			)}
+			<Content />
+		</article>
+	</div>
 </Layout>

@@ -1,0 +1,16 @@
+---
+// KaTeX stylesheet, self-hosted from node_modules (NOT a CDN). Math is rendered
+// to HTML+CSS at build by rehype-katex; this CSS + its bundled fonts (Vite
+// rewrites the url()s and emits the woff2s to /_astro) are all the browser needs
+// — zero JS.
+//
+// Imported with `?url` (a hashed asset-URL *string*), NOT as a side-effect
+// `import '…css'`, for the same reason as CjkFonts: a side-effect import is
+// collected by Astro's per-page CSS crawl and would ship the ~24KB stylesheet on
+// every page sharing Layout's module graph (blog index, about, …), even ones
+// with no math. `?url` ships it only where this <link> renders: posts whose body
+// contains `$…$`.
+import katexHref from 'katex/dist/katex.min.css?url';
+---
+
+<link rel="stylesheet" href={katexHref} />

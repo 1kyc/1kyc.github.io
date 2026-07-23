@@ -6,15 +6,24 @@ import '../styles/content.css';
 // <CjkFonts>, only on pages whose content actually contains CJK. All
 // @font-face only; no JS.
 import '@fontsource-variable/noto-sans/index.css';
+
 import CjkFonts from '../components/CjkFonts.astro';
+import KatexStyles from '../components/KatexStyles.astro';
 
 interface Props {
 	title: string;
 	lang?: string;
 	cjk?: boolean;
+	// Load the self-hosted KaTeX stylesheet — only on pages whose content contains
+	// math (see <KatexStyles>). Conditional so math-free pages ship none of it.
+	math?: boolean;
+	// Widen <main> to make room for a beside-the-article TOC sidebar (the reading
+	// column itself stays at --measure; see content.css). Only blog posts with a
+	// rendered TOC opt in — every other page keeps the plain centered column.
+	wide?: boolean;
 }
 
-const { title, lang = 'en', cjk = false } = Astro.props;
+const { title, lang = 'en', cjk = false, math = false, wide = false } = Astro.props;
 
 // Normalize the current path (drop any trailing slash) so section matching is
 // stable regardless of trailingSlash config.
@@ -46,6 +55,7 @@ const isActive = (href: string) =>
 		<meta name="generator" content={Astro.generator} />
 		<title>{title}</title>
 		{cjk && <CjkFonts />}
+		{math && <KatexStyles />}
 	</head>
 	<body>
 		{/* The maze guards ONLY the landing/root — it isolates that one page.
@@ -67,7 +77,7 @@ const isActive = (href: string) =>
 				</svg>
 			</button>
 		</nav>
-		<main>
+		<main class:list={{ wide }}>
 			<slot />
 		</main>
 		{/* Toggle behavior. A bundled Astro <script> is an ES module = deferred,
