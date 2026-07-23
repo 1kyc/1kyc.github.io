@@ -9,10 +9,18 @@ import { getCollection, type CollectionEntry } from 'astro:content';
 
 export type Post = CollectionEntry<'blog'>;
 
-/** Published posts: drafts are hidden in PROD builds, shown in dev for preview. */
+// Whether drafts are included in the output (pages, RSS, sitemap, and — because
+// Pagefind indexes the built HTML — search). Shown in dev always; hidden in a
+// build UNLESS INCLUDE_DRAFTS=1 is set. That flag exists so a local preview build
+// can exercise draft posts + search without un-drafting content (`npm run
+// build:drafts`); real deploys never set it, so production still hides drafts.
+const INCLUDE_DRAFTS =
+	import.meta.env.DEV || process.env.INCLUDE_DRAFTS === '1';
+
+/** Published posts: drafts hidden in production builds (see INCLUDE_DRAFTS). */
 export async function getPublishedPosts(): Promise<Post[]> {
-	return (await getCollection('blog')).filter((post) =>
-		import.meta.env.PROD ? !post.data.draft : true,
+	return (await getCollection('blog')).filter(
+		(post) => INCLUDE_DRAFTS || !post.data.draft,
 	);
 }
 

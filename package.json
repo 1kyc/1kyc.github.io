@@ -9,6 +9,7 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
+    "preview:drafts": "INCLUDE_DRAFTS=1 astro build && astro preview",
     "check": "astro check",
     "gen:dest": "node scripts/gen-destinations.mjs",
     "build:arm": "node scripts/build-canadarm.mjs",
