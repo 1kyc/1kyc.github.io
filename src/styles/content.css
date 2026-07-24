@@ -863,9 +863,18 @@ main :where(figcaption) {
 
 /* -----------------------------------------------------------------------------
    15. POST HEADER RHYTHM
-   Order in the article: h1 → .meta → .tags → content. Tighten the gaps between
-   them so the header reads as one unit, then open air before the body.
+   Order in the article: h1 → .lede → .meta → .tags → content. Tighten the gaps
+   between them so the header reads as one unit, then open air before the body.
+   .lede is the optional frontmatter description as a standfirst — quiet, a touch
+   larger than body, and (being real page text) part of the search index.
    --------------------------------------------------------------------------- */
+article > .lede {
+	margin: 0 0 var(--space-3);
+	font-size: var(--fs-h4);
+	line-height: 1.5;
+	color: var(--muted);
+	text-wrap: pretty;
+}
 article > .meta {
 	margin: 0 0 var(--space-3);
 }

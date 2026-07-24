@@ -20,7 +20,7 @@ export const getStaticPaths = (async () => {
 
 const { post } = Astro.props;
 const { Content, headings } = await render(post);
-const cjk = hasCjk(post.body ?? '');
+const cjk = hasCjk((post.body ?? '') + ' ' + (post.data.description ?? ''));
 const math = hasMath(post.body ?? '');
 
 // Table of contents: only when there are 3+ section headings (h2/h3), matching
@@ -40,6 +40,10 @@ const showToc = tocHeadings.length >= 3;
 		    search never returns nav chrome or non-blog pages (see /blog/search). */}
 		<article data-pagefind-body>
 			<h1>{post.data.title}</h1>
+			{/* The frontmatter description as a standfirst under the title. It's real
+			    page text inside the indexed region, so it's searchable too (a word
+			    that lives only in the description would otherwise never match). */}
+			{post.data.description && <p class="lede">{post.data.description}</p>}
 			{/* Ignored for full-text: the date/reading-time is chrome, not prose, and
 			    would otherwise lead short posts' search excerpts. data-pagefind-meta
 			    still exposes the date for the result line. */}
