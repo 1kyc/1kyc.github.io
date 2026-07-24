@@ -40,7 +40,10 @@ const showToc = tocHeadings.length >= 3;
 		    search never returns nav chrome or non-blog pages (see /blog/search). */}
 		<article data-pagefind-body>
 			<h1>{post.data.title}</h1>
-			<p class="meta">
+			{/* Ignored for full-text: the date/reading-time is chrome, not prose, and
+			    would otherwise lead short posts' search excerpts. data-pagefind-meta
+			    still exposes the date for the result line. */}
+			<p class="meta" data-pagefind-ignore>
 				<time datetime={post.data.pubDate.toISOString()} data-pagefind-meta="date">
 					{formatDate(post.data.pubDate)}
 				</time>
@@ -53,15 +56,18 @@ const showToc = tocHeadings.length >= 3;
 					</span>
 				)}
 			</p>
+			{/* Tags are left indexable (no data-pagefind-ignore) so searching a topic
+			    word finds posts tagged with it — tags are meaningful metadata, and
+			    they only surface in an excerpt when the query actually matches one. */}
 			{post.data.tags.length > 0 && (
-				<ul class="tags" data-pagefind-ignore>
+				<ul class="tags">
 					{post.data.tags.map((tag) => (
 						<li><a href={`/blog/tags/${tagSlug(tag)}`}>{tag}</a></li>
 					))}
 				</ul>
 			)}
 			{showToc && (
-				<details class="toc-disclosure">
+				<details class="toc-disclosure" data-pagefind-ignore>
 					<summary>Contents</summary>
 					<Toc headings={tocHeadings} />
 				</details>
