@@ -3,10 +3,10 @@
 // it). Renders the <li>; the caller supplies the surrounding <ul class="post-list">.
 // Tag chips are links to the per-tag pages (see src/lib/tags.ts for the slug).
 import type { Post } from '../lib/posts';
+import TagList from './TagList.astro';
 import { excerpt } from '../lib/excerpt';
 import { formatDate } from '../lib/date';
 import { readingTime } from '../lib/reading-time';
-import { tagSlug } from '../lib/tags';
 
 interface Props {
 	post: Post;
@@ -24,11 +24,5 @@ const { post } = Astro.props;
 		<span class="reading-time"> · {readingTime(post.body ?? '')}</span>
 	</p>
 	<p>{excerpt(post)}</p>
-	{post.data.tags.length > 0 && (
-		<ul class="tags">
-			{post.data.tags.map((tag) => (
-				<li><a href={`/blog/tags/${tagSlug(tag)}`}>{tag}</a></li>
-			))}
-		</ul>
-	)}
+	<TagList tags={post.data.tags} />
 </li>

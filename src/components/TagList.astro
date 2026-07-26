@@ -1,0 +1,21 @@
+---
+// TagList — a wrapping row of "#tag" chips, each linking to its /blog/tags/<slug>
+// page. Shared by the post card (index + tag pages) and the post header so the
+// chip markup and the slug link live in exactly one place. Renders nothing when
+// there are no tags. Styling: `.tags` in content.css §14.
+import { tagSlug } from '../lib/tags';
+
+interface Props {
+	tags: string[];
+}
+
+const { tags } = Astro.props;
+---
+
+{tags.length > 0 && (
+	<ul class="tags">
+		{tags.map((tag) => (
+			<li><a href={`/blog/tags/${tagSlug(tag)}`}>{tag}</a></li>
+		))}
+	</ul>
+)}

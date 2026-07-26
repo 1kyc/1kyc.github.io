@@ -10,14 +10,12 @@
 // getPublishedPosts() applies the usual draft rule, so a production build (no
 // INCLUDE_DRAFTS) emits [] for draft-only CN/JP content — nothing leaks.
 import type { APIRoute } from 'astro';
-import { getPublishedPosts } from '../../lib/posts';
+import { getPublishedPosts, isCjkPost } from '../../lib/posts';
 import { formatDate } from '../../lib/date';
 import { toPlainText } from '../../lib/plaintext';
 
 export const GET: APIRoute = async () => {
-	const posts = (await getPublishedPosts()).filter(
-		(post) => post.data.lang === 'zh-Hans' || post.data.lang === 'ja',
-	);
+	const posts = (await getPublishedPosts()).filter(isCjkPost);
 	const index = posts.map((post) => ({
 		url: `/blog/${post.id}/`,
 		title: post.data.title,

@@ -1,13 +1,11 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import BlogSearch from '../../components/BlogSearch';
-import { getPublishedPosts } from '../../lib/posts';
+import { getPublishedPosts, isCjkPost } from '../../lib/posts';
 
 // If any CJK posts exist, load the CJK fonts so Chinese/Japanese result titles
 // and excerpts render in their own faces.
-const cjk = (await getPublishedPosts()).some(
-	(p) => p.data.lang === 'zh-Hans' || p.data.lang === 'ja',
-);
+const cjk = (await getPublishedPosts()).some(isCjkPost);
 ---
 
 <Layout title="Search" cjk={cjk}>

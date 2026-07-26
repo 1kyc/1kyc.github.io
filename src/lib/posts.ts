@@ -30,3 +30,17 @@ export async function getSortedPosts(): Promise<Post[]> {
 		(a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime(),
 	);
 }
+
+// Languages whose text uses CJK word-segmentation, where Pagefind's word+prefix
+// matching hides mid-word characters. These posts are searched via a substring
+// index (see search-cjk.json.ts); EVERY other language goes to Pagefind. This is
+// the single source for that partition — `isCjkPost` and its negation must be the
+// only spelling of it, so the two search paths always tile the whole language set
+// (add a language here and it moves to substring search; anything else stays on
+// Pagefind — no post can fall through to neither).
+const CJK_LANGS: readonly string[] = ['zh-Hans', 'ja'];
+
+/** True when a post is searched by the CN/JP substring index rather than Pagefind. */
+export function isCjkPost(post: Post): boolean {
+	return CJK_LANGS.includes(post.data.lang);
+}

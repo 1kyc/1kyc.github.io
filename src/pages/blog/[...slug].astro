@@ -3,12 +3,12 @@ import type { GetStaticPaths } from 'astro';
 import { render } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
 import Toc from '../../components/Toc.astro';
-import { getPublishedPosts } from '../../lib/posts';
+import TagList from '../../components/TagList.astro';
+import { getPublishedPosts, isCjkPost } from '../../lib/posts';
 import { formatDate } from '../../lib/date';
 import { hasCjk } from '../../lib/cjk';
 import { hasMath } from '../../lib/math';
 import { readingTime } from '../../lib/reading-time';
-import { tagSlug } from '../../lib/tags';
 
 export const getStaticPaths = (async () => {
 	const posts = await getPublishedPosts();
@@ -38,10 +38,10 @@ const showToc = tocHeadings.length >= 3;
 		)}
 		{/* data-pagefind-body scopes Pagefind's index to post articles only, so
 		    search never returns nav chrome or non-blog pages (see /blog/search).
-		    ONLY English posts are indexed by Pagefind; CN/JP posts are handled by
-		    substring search instead (see /blog/search-cjk.json), because Pagefind's
-		    word+prefix matching hides mid-word CJK characters. */}
-		<article data-pagefind-body={post.data.lang === 'en' ? true : undefined}>
+		    CJK posts are excluded — they're handled by substring search instead
+		    (see /blog/search-cjk.json), because Pagefind's word+prefix matching
+		    hides mid-word CJK characters. isCjkPost is the shared partition. */}
+		<article data-pagefind-body={!isCjkPost(post) ? true : undefined}>
 			<h1>{post.data.title}</h1>
 			{/* The frontmatter description as a standfirst under the title. It's real
 			    page text inside the indexed region, so it's searchable too (a word
@@ -63,16 +63,10 @@ const showToc = tocHeadings.length >= 3;
 					</span>
 				)}
 			</p>
-			{/* Tags are left indexable (no data-pagefind-ignore) so searching a topic
-			    word finds posts tagged with it — tags are meaningful metadata, and
-			    they only surface in an excerpt when the query actually matches one. */}
-			{post.data.tags.length > 0 && (
-				<ul class="tags">
-					{post.data.tags.map((tag) => (
-						<li><a href={`/blog/tags/${tagSlug(tag)}`}>{tag}</a></li>
-					))}
-				</ul>
-			)}
+			{/* Tags stay indexable (no data-pagefind-ignore) so searching a topic word
+			    finds posts tagged with it — they only surface in an excerpt when the
+			    query actually matches one. */}
+			<TagList tags={post.data.tags} />
 			{showToc && (
 				<details class="toc-disclosure" data-pagefind-ignore>
 					<summary>Contents</summary>

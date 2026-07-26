@@ -21,6 +21,10 @@ type CjkEntry = {
 	tags: string[];
 	body: string;
 };
+// The fetched entry plus a lowercased haystack (title + tags + body), computed
+// once at load so each keystroke is a plain `.includes` rather than rebuilding
+// and lowercasing every entry's text on every query.
+type CjkIndexed = CjkEntry & { haystack: string };
 
 const MAX_RESULTS = 20;
 const DEBOUNCE_MS = 180;
@@ -36,11 +40,17 @@ function loadPagefind(): Promise<any> {
 }
 
 // --- CN/JP: substring index ---
-let cjkPromise: Promise<CjkEntry[]> | null = null;
-function loadCjkIndex(): Promise<CjkEntry[]> {
+let cjkPromise: Promise<CjkIndexed[]> | null = null;
+function loadCjkIndex(): Promise<CjkIndexed[]> {
 	if (!cjkPromise) {
 		cjkPromise = fetch('/blog/search-cjk.json')
-			.then((r) => (r.ok ? r.json() : []))
+			.then((r) => (r.ok ? (r.json() as Promise<CjkEntry[]>) : []))
+			.then((entries) =>
+				entries.map((e) => ({
+					...e,
+					haystack: `${e.title} ${e.tags.join(' ')} ${e.body}`.toLowerCase(),
+				})),
+			)
 			.catch(() => []);
 	}
 	return cjkPromise;
@@ -99,12 +109,10 @@ export default function BlogSearch() {
 			excerpt: d.excerpt,
 		}));
 
-		// CN/JP via substring over title + tags + body.
+		// CN/JP via substring over the precomputed title+tags+body haystack.
 		const ql = trimmed.toLowerCase();
 		const cjkResults: Result[] = cjk
-			.filter((e) =>
-				`${e.title} ${e.tags.join(' ')} ${e.body}`.toLowerCase().includes(ql),
-			)
+			.filter((e) => e.haystack.includes(ql))
 			.map((e) => ({
 				url: e.url,
 				title: e.title,
