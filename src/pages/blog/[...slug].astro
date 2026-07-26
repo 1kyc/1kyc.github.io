@@ -1,17 +1,17 @@
 ---
 import type { GetStaticPaths } from 'astro';
-import { getCollection, render } from 'astro:content';
+import { render } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
 import Toc from '../../components/Toc.astro';
+import TagList from '../../components/TagList.astro';
+import { getPublishedPosts, isCjkPost } from '../../lib/posts';
 import { formatDate } from '../../lib/date';
 import { hasCjk } from '../../lib/cjk';
 import { hasMath } from '../../lib/math';
 import { readingTime } from '../../lib/reading-time';
 
 export const getStaticPaths = (async () => {
-	const posts = (await getCollection('blog')).filter((post) =>
-		import.meta.env.PROD ? !post.data.draft : true,
-	);
+	const posts = await getPublishedPosts();
 	return posts.map((post) => ({
 		params: { slug: post.id },
 		props: { post },
@@ -20,7 +20,7 @@ export const getStaticPaths = (async () => {
 
 const { post } = Astro.props;
 const { Content, headings } = await render(post);
-const cjk = hasCjk(post.body ?? '');
+const cjk = hasCjk((post.body ?? '') + ' ' + (post.data.description ?? ''));
 const math = hasMath(post.body ?? '');
 
 // Table of contents: only when there are 3+ section headings (h2/h3), matching
@@ -36,10 +36,22 @@ const showToc = tocHeadings.length >= 3;
 				<Toc headings={tocHeadings} />
 			</aside>
 		)}
-		<article>
+		{/* data-pagefind-body scopes Pagefind's index to post articles only, so
+		    search never returns nav chrome or non-blog pages (see /blog/search).
+		    CJK posts are excluded — they're handled by substring search instead
+		    (see /blog/search-cjk.json), because Pagefind's word+prefix matching
+		    hides mid-word CJK characters. isCjkPost is the shared partition. */}
+		<article data-pagefind-body={!isCjkPost(post) ? true : undefined}>
 			<h1>{post.data.title}</h1>
-			<p class="meta">
-				<time datetime={post.data.pubDate.toISOString()}>
+			{/* The frontmatter description as a standfirst under the title. It's real
+			    page text inside the indexed region, so it's searchable too (a word
+			    that lives only in the description would otherwise never match). */}
+			{post.data.description && <p class="lede">{post.data.description}</p>}
+			{/* Ignored for full-text: the date/reading-time is chrome, not prose, and
+			    would otherwise lead short posts' search excerpts. data-pagefind-meta
+			    still exposes the date for the result line. */}
+			<p class="meta" data-pagefind-ignore>
+				<time datetime={post.data.pubDate.toISOString()} data-pagefind-meta="date">
 					{formatDate(post.data.pubDate)}
 				</time>
 				<span class="reading-time"> · {readingTime(post.body ?? '')}</span>
@@ -51,13 +63,12 @@ const showToc = tocHeadings.length >= 3;
 					</span>
 				)}
 			</p>
-			{post.data.tags.length > 0 && (
-				<ul class="tags">
-					{post.data.tags.map((tag) => <li>{tag}</li>)}
-				</ul>
-			)}
+			{/* Tags stay indexable (no data-pagefind-ignore) so searching a topic word
+			    finds posts tagged with it — they only surface in an excerpt when the
+			    query actually matches one. */}
+			<TagList tags={post.data.tags} />
 			{showToc && (
-				<details class="toc-disclosure">
+				<details class="toc-disclosure" data-pagefind-ignore>
 					<summary>Contents</summary>
 					<Toc headings={tocHeadings} />
 				</details>

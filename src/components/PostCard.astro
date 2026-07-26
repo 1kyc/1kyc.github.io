@@ -1,0 +1,28 @@
+---
+// PostCard — one entry in a .post-list (the blog index and each tag page share
+// it). Renders the <li>; the caller supplies the surrounding <ul class="post-list">.
+// Tag chips are links to the per-tag pages (see src/lib/tags.ts for the slug).
+import type { Post } from '../lib/posts';
+import TagList from './TagList.astro';
+import { excerpt } from '../lib/excerpt';
+import { formatDate } from '../lib/date';
+import { readingTime } from '../lib/reading-time';
+
+interface Props {
+	post: Post;
+}
+
+const { post } = Astro.props;
+---
+
+<li class="post-card" lang={post.data.lang}>
+	<h2><a href={`/blog/${post.id}`}>{post.data.title}</a></h2>
+	<p class="post-meta">
+		<time datetime={post.data.pubDate.toISOString()}>
+			{formatDate(post.data.pubDate)}
+		</time>
+		<span class="reading-time"> · {readingTime(post.body ?? '')}</span>
+	</p>
+	<p>{excerpt(post)}</p>
+	<TagList tags={post.data.tags} />
+</li>
