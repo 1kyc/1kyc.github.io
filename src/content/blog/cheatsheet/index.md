@@ -6,22 +6,13 @@ tags: ['meta', 'authoring', 'reference']
 draft: true
 ---
 
-This is my personal cheat-sheet for writing on this site. It documents the
-syntax for every authoring feature **and** renders each one, so it doubles as a
-place to eyeball styling changes. It stays `draft: true` — it never ships to
-production, but it renders in `npm run dev`.
+My cheat-sheet for writing here: each section shows the raw Markdown, then how it renders. It stays `draft: true` — it never ships to production, but renders in `npm run dev`.
 
 <!--more-->
 
-Everything below is plain Markdown (`.md`), no per-post component imports. The
-text above the `<!--more-->` marker becomes the card blurb / excerpt when a post
-has no `description`.
+Posts are plain Markdown (`.md`), no per-post component imports. Each post is a folder — `src/content/blog/<slug>/index.md` — so images colocate; the URL is the folder name and the date lives in frontmatter. Text above the `<!--more-->` marker becomes the card excerpt when a post has no `description`.
 
-## Frontmatter and file layout
-
-Each post is a folder — `src/content/blog/<slug>/index.md` — so images can sit
-next to the prose. The URL is the folder name (`cheatsheet` →
-`/blog/cheatsheet`); the date lives in frontmatter, not the filename.
+## Frontmatter
 
 ```yaml
 ---
@@ -29,7 +20,7 @@ title: 'Cheatsheet'                     # required
 description: 'One-line card blurb…'     # optional → falls back to the excerpt
 pubDate: 2026-07-23                     # required; drives sort order
 updatedDate: 2026-07-24                 # optional
-tags: ['meta', 'authoring']            # optional
+tags: ['meta', 'authoring']             # optional
 cover: ./cover.png                      # optional, colocated + auto-optimized
 coverAlt: 'Description of the cover'    # optional
 draft: true                             # optional; true hides it in production
@@ -37,17 +28,62 @@ lang: en                                # en | zh-Hans | ja (switches the CJK fa
 ---
 ```
 
+**Renders as:** the title, date, and `#`-tag chips at the top of this post (`description` becomes the lede beneath the title).
+
+## Emphasis and links
+
+```md
+**bold**, *italic*, `inline code`, and a [link](/blog).
+```
+
+**Renders as:**
+
+**bold**, *italic*, `inline code`, and a [link](/blog).
+
 ## Headings and the table of contents
 
-Section headings (`##` / `###`) build the table of contents automatically — a
-sticky sidebar on the right at wide widths, a `Contents` disclosure on narrow
-ones. It only appears once a post has **three or more** headings; below that it
-would just be noise. (This post clears the bar.)
+```md
+## A section heading
+### A subsection
+```
+
+**Renders as:** section headings that build the table of contents automatically — the sticky sidebar (wide screens) or `Contents` disclosure (narrow) on this post. It appears only with **three or more** headings.
+
+## Lists
+
+```md
+- unordered, with an accent marker
+- nests cleanly
+  - like this
+
+1. ordered
+2. same rhythm
+```
+
+**Renders as:**
+
+- unordered, with an accent marker
+- nests cleanly
+  - like this
+
+1. ordered
+2. same rhythm
+
+## Blockquote
+
+```md
+> A quiet left rule and a tinted surface,
+> for pulling a line out of the flow.
+```
+
+**Renders as:**
+
+> A quiet left rule and a tinted surface,
+> for pulling a line out of the flow.
 
 ## Code blocks
 
-Fenced blocks run through Expressive Code — a title bar, highlighted line
-ranges, diff markers, and a copy button, all with zero framework JavaScript:
+Fenced blocks run through Expressive Code — title bar, highlighted ranges, diff markers, and a copy button, all with zero framework JavaScript.
 
 ````md
 ```js title="orbit.js" {2-3} ins={6} del={5}
@@ -61,7 +97,7 @@ export function period(semiMajorAxisMeters, mu) {
 ```
 ````
 
-…which renders as:
+**Renders as:**
 
 ```js title="orbit.js" {2-3} ins={6} del={5}
 export function period(semiMajorAxisMeters, mu) {
@@ -73,113 +109,86 @@ export function period(semiMajorAxisMeters, mu) {
 }
 ```
 
-A plain block still gets syntax colors and a copy button:
-
-```bash
-npm run verify:arm -- --dump joints.json
-cat joints.json | jq '.frames[0]'
-```
-
-Inline code — `const mu = 3.986e14` — stays a mono chip in the running text.
+Inline code — `const mu = 3.986e14` — stays a mono chip in running text.
 
 ## Math
 
-Wrap inline math in single dollars and display math in double dollars:
+KaTeX renders at build time — no client JavaScript, and the stylesheet loads only on pages that contain math.
 
-```tex
-Inline: $T = 2\pi\sqrt{a^3/\mu}$ where $\mu = GM$.
+```md
+Inline $T = 2\pi\sqrt{a^3/\mu}$, and a display block:
 
 $$
 v = \sqrt{\mu\left(\frac{2}{r} - \frac{1}{a}\right)}
 $$
 ```
 
-Rendered, the orbital period is $T = 2\pi\sqrt{a^3/\mu}$ where $\mu = GM$, and
-the vis-viva equation gets its own centered block:
+**Renders as:**
+
+Inline $T = 2\pi\sqrt{a^3/\mu}$, and a display block:
 
 $$
 v = \sqrt{\mu\left(\frac{2}{r} - \frac{1}{a}\right)}
 $$
-
-KaTeX renders all of this to HTML and CSS **at build time** — the browser
-downloads no math JavaScript, only the self-hosted stylesheet (and only on pages
-that actually contain math).
 
 ## Callouts
 
-Five kinds, written as `:::` container directives. Add a custom title in
-brackets:
+Five kinds, written as `:::` container directives; add a custom title in brackets.
 
 ```md
 :::note
-A neutral, informational aside.
+Neutral aside.
 :::
 
-:::caution[Heads up]
-A caution with a custom title.
+:::caution[Custom title]
+The strongest warning, with a title.
 :::
 ```
 
-Rendered:
+**Renders as:**
 
 :::note
-This is a **note** — the neutral, informational callout. Inline `code` and
-[links](/blog) work inside it.
+Neutral aside — inline `code` and [links](/blog) work inside.
 :::
 
 :::tip
-This is a **tip**: keep derived values (reading time, TOC) out of frontmatter —
-compute them, don't hand-type them.
+A helpful tip.
 :::
 
 :::important
-This is an **important** callout — don't skip the license bookkeeping for any
-bundled font or asset.
+Something worth emphasizing.
 :::
 
 :::warning
-This is a **warning**. Double-check the remark/rehype plugin order before
-shipping a pipeline change.
+Proceed carefully.
 :::
 
-:::caution[Heads up]
-This is a **caution** with a custom title. Container directives keep posts as
-portable plain Markdown — no MDX required.
+:::caution[Custom title]
+The strongest warning, with a title.
 :::
 
-## The rest of Markdown
+## Tables
 
-The reading-room stylesheet also dresses the ordinary elements.
+```md
+| Body | Semi-major axis (AU) | Period (yr) |
+| --- | --- | --- |
+| Earth | 1.00 | 1.00 |
+| Mars | 1.52 | 1.88 |
+```
 
-> Blockquotes get a quiet left rule and a tinted surface — good for pulling a
-> line out of the flow without shouting.
-
-- Unordered lists use an accent marker,
-- nest cleanly,
-  - like this,
-- and keep the reading measure.
-
-1. Ordered lists,
-2. same rhythm.
-
-Tables are set in mono and scroll inside their own box on narrow screens:
+**Renders as:**
 
 | Body | Semi-major axis (AU) | Period (yr) |
 | --- | --- | --- |
 | Earth | 1.00 | 1.00 |
 | Mars | 1.52 | 1.88 |
-| Jupiter | 5.20 | 11.86 |
 
-A dashed divider echoes the maze's exit rule:
+## Horizontal rule
+
+```md
+---
+```
+
+**Renders as:**
 
 ---
-
-Images placed in the post folder are auto-optimized; the `cover` frontmatter
-field is the card thumbnail (declared, not yet rendered on the index).
-
-## Wrap-up
-
-If a titled code block with a highlighted range and diff markers, inline and
-display math, five distinct callouts, a reading-time estimate in the meta line,
-and a nested table of contents all look right — the whole authoring stack is
-wired up, and this page is the place to keep it honest.
