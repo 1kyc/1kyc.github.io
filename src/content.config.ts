@@ -15,6 +15,9 @@ const blog = defineCollection({
 			cover: image().optional(),
 			coverAlt: z.string().optional(),
 			draft: z.boolean().default(false),
+			// Comments (Giscus) are on by default for every post; set
+			// `comments: false` in a post's frontmatter to hide the section.
+			comments: z.boolean().default(true),
 		}),
 });
 

@@ -4,6 +4,7 @@ import { render } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
 import Toc from '../../components/Toc.astro';
 import TagList from '../../components/TagList.astro';
+import Comments from '../../components/Comments.astro';
 import { getPublishedPosts, isCjkPost } from '../../lib/posts';
 import { formatDate } from '../../lib/date';
 import { hasCjk } from '../../lib/cjk';
@@ -76,4 +77,8 @@ const showToc = tocHeadings.length >= 3;
 			<Content />
 		</article>
 	</div>
+	{/* Comments sit below the article, centered on the reading measure regardless
+	    of the TOC grid (see .comments in content.css). Opt out per post with
+	    `comments: false` in frontmatter. */}
+	{post.data.comments && <Comments lang={post.data.lang} />}
 </Layout>

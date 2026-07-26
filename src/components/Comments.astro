@@ -1,0 +1,127 @@
+---
+import { GISCUS, giscusLang, commentsHeading } from '../lib/giscus';
+
+interface Props {
+	// Post language → giscus UI locale, so the widget chrome ("Sign in",
+	// "Write", …) matches the post it sits under.
+	lang?: string;
+}
+const { lang = 'en' } = Astro.props;
+const uiLang = giscusLang(lang);
+const heading = commentsHeading(lang);
+---
+
+{/* Comments live OUTSIDE the article's data-pagefind-body (they're not our
+    prose) and are explicitly ignored so a comment never leaks into post search.
+    The container is the giscus mount: its data-* attributes carry the config to
+    the client script, which injects giscus only when the section scrolls into
+    view (no giscus.app request until then). */}
+<section class="comments" aria-labelledby="comments-heading" data-pagefind-ignore>
+	<h2 id="comments-heading" class="comments-heading">{heading}</h2>
+	<div
+		class="giscus"
+		data-giscus
+		data-repo={GISCUS.repo}
+		data-repo-id={GISCUS.repoId}
+		data-category={GISCUS.category}
+		data-category-id={GISCUS.categoryId}
+		data-mapping={GISCUS.mapping}
+		data-ui-lang={uiLang}
+	></div>
+	<noscript>
+		<p class="comments-fallback">
+			Comments are powered by GitHub Discussions and need JavaScript. You can
+			read and reply in
+			<a href={`https://github.com/${GISCUS.repo}/discussions`}>the discussions on GitHub</a>.
+		</p>
+	</noscript>
+</section>
+
+<script>
+	// Lazy, privacy-first giscus loader. No third-party (giscus.app) request fires
+	// until the reader scrolls the comments into view — a reader who never reaches
+	// the bottom stays fully zero-third-party. Vanilla, not a framework island:
+	// the sanctioned content-side exception alongside the theme toggle.
+	const mount = document.querySelector<HTMLElement>('[data-giscus]');
+	if (mount) {
+		const root = document.documentElement;
+		const ORIGIN = 'https://giscus.app';
+
+		// giscus custom themes are a CSS URL it loads INSIDE its iframe. We ship two
+		// self-hosted files (public/giscus/{light,dark}.css) mirroring the site
+		// palette, resolved against the current origin so dev and prod each load
+		// their own copy — no third-party theme host.
+		const themeUrl = (mode: 'light' | 'dark') =>
+			new URL(`/giscus/${mode}.css`, location.origin).href;
+		// Effective theme mirrors the toggle in Layout.astro: an explicit
+		// data-theme wins; otherwise fall back to the OS preference.
+		const effective = (): 'light' | 'dark' =>
+			(root.dataset.theme as 'light' | 'dark') ||
+			(matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+
+		let loaded = false;
+		const load = () => {
+			if (loaded) return;
+			loaded = true;
+			const s = document.createElement('script');
+			s.src = `${ORIGIN}/client.js`;
+			s.async = true;
+			s.crossOrigin = 'anonymous';
+			const d = mount.dataset;
+			s.setAttribute('data-repo', d.repo!);
+			s.setAttribute('data-repo-id', d.repoId!);
+			s.setAttribute('data-category', d.category!);
+			// Omit an empty category-id so giscus resolves the category by name.
+			if (d.categoryId) s.setAttribute('data-category-id', d.categoryId);
+			s.setAttribute('data-mapping', d.mapping!);
+			s.setAttribute('data-strict', '1');
+			s.setAttribute('data-reactions-enabled', '1');
+			s.setAttribute('data-emit-metadata', '0');
+			s.setAttribute('data-input-position', 'top');
+			s.setAttribute('data-theme', themeUrl(effective()));
+			s.setAttribute('data-lang', d.uiLang!);
+			s.setAttribute('data-loading', 'lazy');
+			// giscus renders its iframe into the .giscus container (this mount).
+			mount.appendChild(s);
+		};
+
+		if ('IntersectionObserver' in window) {
+			const io = new IntersectionObserver(
+				(entries) => {
+					if (entries.some((e) => e.isIntersecting)) {
+						io.disconnect();
+						load();
+					}
+				},
+				{ rootMargin: '200px' },
+			);
+			io.observe(mount);
+		} else {
+			load();
+		}
+
+		// Keep the iframe's theme in sync with the site. postMessage no-ops until the
+		// iframe exists, so early flips (before load) are harmless — the initial
+		// data-theme above already paints the right one.
+		const syncTheme = () => {
+			const frame = document.querySelector<HTMLIFrameElement>('iframe.giscus-frame');
+			frame?.contentWindow?.postMessage(
+				{ giscus: { setConfig: { theme: themeUrl(effective()) } } },
+				ORIGIN,
+			);
+		};
+		// The toggle flips data-theme on <html>.
+		new MutationObserver(syncTheme).observe(root, { attributeFilter: ['data-theme'] });
+		// OS theme changes only matter when there's no explicit override.
+		matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+			if (!root.dataset.theme) syncTheme();
+		});
+		// Reconcile once the widget mounts: if the reader toggled during the
+		// sub-second load window, syncTheme() no-op'd (no iframe yet), so the
+		// initial data-theme could be stale. giscus posts a message when ready —
+		// re-sync on it to settle the iframe to the current theme.
+		window.addEventListener('message', (e) => {
+			if (e.origin === ORIGIN && e.data?.giscus) syncTheme();
+		});
+	}
+</script>
