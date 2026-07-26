@@ -1,119 +1,130 @@
-// BlogSearch — the site's one and only interactive blog surface (a Preact island
-// mounted only on /blog/search). Everything else stays zero-JS.
+// BlogSearch — the one interactive island on the content side (only on
+// /blog/search). Everything else stays zero-JS.
 //
-// It talks to Pagefind's runtime bundle, which the astro-pagefind integration
-// builds into /pagefind/ from the static HTML at `astro build` (and serves in
-// dev/preview). The bundle isn't present at build time, so it's imported lazily
-// through a non-literal path with @vite-ignore — otherwise Vite would try to
-// resolve /pagefind/pagefind.js during the build and fail.
-//
-// Multilingual: Pagefind builds ONE index per page language (`<html lang>`), and
-// its runtime loads only the index matching the page it inits on — with no option
-// to pick another. This page is `en`, so a naive init would never find zh-Hans/ja
-// posts. Instead we spin up one Pagefind instance per language that actually has
-// posts (the `langs` prop, derived at build time) and merge their results, so one
-// box searches every language. See loadInstance for the per-language init.
+// Hybrid search, split by post language:
+//   • English posts → Pagefind. Its prebuilt word index gives stemming
+//     (apples→apple) + prefix matching, and downloads in small chunks. Loaded
+//     lazily from /pagefind/pagefind.js (a non-literal path + @vite-ignore, since
+//     the bundle doesn't exist at build time).
+//   • CN/JP posts → a true SUBSTRING scan over /blog/search-cjk.json, so a single
+//     CJK character matches anywhere it appears (Pagefind's word/prefix model
+//     hides mid-word characters, which matters when the character IS the unit).
+//     Fine to scan client-side: this slice is small by design.
+// Results from both are merged and de-duplicated by URL.
 import { useCallback, useRef, useState } from 'preact/hooks';
 
-type PagefindResultData = {
+type Result = { url: string; title?: string; date?: string; excerpt: string };
+type CjkEntry = {
 	url: string;
-	excerpt: string;
-	meta: { title?: string; date?: string };
+	title: string;
+	date: string;
+	tags: string[];
+	body: string;
 };
-
-type PagefindResult = { data: () => Promise<PagefindResultData> };
-type Pagefind = {
-	init: () => Promise<void>;
-	search: (q: string) => Promise<{ results: PagefindResult[] }>;
-};
-
-interface Props {
-	/** Languages that have posts (from frontmatter `lang`); one Pagefind index each. */
-	langs: string[];
-}
 
 const MAX_RESULTS = 20;
 const DEBOUNCE_MS = 180;
 
-/**
- * Load one Pagefind instance bound to a specific language index. Pagefind reads
- * `<html lang>` at init and exposes no option to override it, so we set lang for
- * the duration of the init (which captures it) and restore it immediately after.
- * A distinct `?lang=` query gives each language its own ES-module instance, so
- * their captured languages don't clobber each other.
- */
-async function loadInstance(lang: string): Promise<Pagefind> {
-	const html = document.documentElement;
-	const prev = html.lang;
-	html.lang = lang;
-	try {
-		const path = `/pagefind/pagefind.js?lang=${encodeURIComponent(lang)}`;
-		const mod = (await import(/* @vite-ignore */ path)) as Pagefind;
-		await mod.init();
-		return mod;
-	} finally {
-		html.lang = prev;
+// --- English: Pagefind ---
+let pagefindPromise: Promise<any> | null = null;
+function loadPagefind(): Promise<any> {
+	if (!pagefindPromise) {
+		const path = '/pagefind/pagefind.js';
+		pagefindPromise = import(/* @vite-ignore */ path);
 	}
+	return pagefindPromise;
 }
 
-let instancesPromise: Promise<Pagefind[]> | null = null;
-function loadInstances(langs: string[]): Promise<Pagefind[]> {
-	if (!instancesPromise) {
-		// Sequential: each load transiently mutates <html lang>, so they must not
-		// overlap. A handful of languages, once, on first search — negligible.
-		instancesPromise = (async () => {
-			const out: Pagefind[] = [];
-			for (const lang of langs) {
-				try {
-					out.push(await loadInstance(lang));
-				} catch {
-					// A language with no built index (e.g. all its posts are drafts in a
-					// production build) — skip it rather than fail the whole search.
-				}
-			}
-			return out;
-		})();
+// --- CN/JP: substring index ---
+let cjkPromise: Promise<CjkEntry[]> | null = null;
+function loadCjkIndex(): Promise<CjkEntry[]> {
+	if (!cjkPromise) {
+		cjkPromise = fetch('/blog/search-cjk.json')
+			.then((r) => (r.ok ? r.json() : []))
+			.catch(() => []);
 	}
-	return instancesPromise;
+	return cjkPromise;
 }
 
-export default function BlogSearch({ langs }: Props) {
+function escapeHtml(s: string): string {
+	return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/** Build a highlighted excerpt window around the first substring match. */
+function makeExcerpt(body: string, query: string): string {
+	const at = body.toLowerCase().indexOf(query.toLowerCase());
+	if (at === -1) {
+		return escapeHtml(body.slice(0, 100)) + (body.length > 100 ? '…' : '');
+	}
+	const start = Math.max(0, at - 20);
+	const end = Math.min(body.length, at + query.length + 60);
+	return (
+		(start > 0 ? '…' : '') +
+		escapeHtml(body.slice(start, at)) +
+		'<mark>' +
+		escapeHtml(body.slice(at, at + query.length)) +
+		'</mark>' +
+		escapeHtml(body.slice(at + query.length, end)) +
+		(end < body.length ? '…' : '')
+	);
+}
+
+export default function BlogSearch() {
 	const [query, setQuery] = useState('');
-	const [results, setResults] = useState<PagefindResultData[]>([]);
+	const [results, setResults] = useState<Result[]>([]);
 	const [status, setStatus] = useState<'idle' | 'searching' | 'done'>('idle');
 	const timer = useRef<number | undefined>(undefined);
 	// Ignore results from a stale query that resolves after a newer keystroke.
 	const latest = useRef('');
 
-	const run = useCallback(
-		async (q: string) => {
-			const trimmed = q.trim();
-			if (!trimmed) {
-				setResults([]);
-				setStatus('idle');
-				return;
+	const run = useCallback(async (q: string) => {
+		const trimmed = q.trim();
+		if (!trimmed) {
+			setResults([]);
+			setStatus('idle');
+			return;
+		}
+		setStatus('searching');
+		const [pagefind, cjk] = await Promise.all([loadPagefind(), loadCjkIndex()]);
+
+		// English via Pagefind (stemming + prefix).
+		const search = await pagefind.search(trimmed);
+		const enData = await Promise.all(
+			search.results.slice(0, MAX_RESULTS).map((r: any) => r.data()),
+		);
+		const enResults: Result[] = enData.map((d: any) => ({
+			url: d.url,
+			title: d.meta?.title,
+			date: d.meta?.date,
+			excerpt: d.excerpt,
+		}));
+
+		// CN/JP via substring over title + tags + body.
+		const ql = trimmed.toLowerCase();
+		const cjkResults: Result[] = cjk
+			.filter((e) =>
+				`${e.title} ${e.tags.join(' ')} ${e.body}`.toLowerCase().includes(ql),
+			)
+			.map((e) => ({
+				url: e.url,
+				title: e.title,
+				date: e.date,
+				excerpt: makeExcerpt(e.body, trimmed),
+			}));
+
+		if (latest.current !== q) return; // a newer query superseded this one
+
+		const seen = new Set<string>();
+		const merged: Result[] = [];
+		for (const r of [...enResults, ...cjkResults]) {
+			if (!seen.has(r.url)) {
+				seen.add(r.url);
+				merged.push(r);
 			}
-			setStatus('searching');
-			const instances = await loadInstances(langs);
-			const searches = await Promise.all(instances.map((pf) => pf.search(trimmed)));
-			// Merge every language's hits, then dedupe by URL (a post lives in exactly
-			// one language index, so this is just belt-and-suspenders).
-			const merged = searches.flatMap((s) => s.results).slice(0, MAX_RESULTS * 2);
-			const data = await Promise.all(merged.map((r) => r.data()));
-			if (latest.current !== q) return; // a newer query superseded this one
-			const seen = new Set<string>();
-			const unique: PagefindResultData[] = [];
-			for (const d of data) {
-				if (!seen.has(d.url)) {
-					seen.add(d.url);
-					unique.push(d);
-				}
-			}
-			setResults(unique.slice(0, MAX_RESULTS));
-			setStatus('done');
-		},
-		[langs],
-	);
+		}
+		setResults(merged.slice(0, MAX_RESULTS));
+		setStatus('done');
+	}, []);
 
 	const onInput = useCallback(
 		(e: Event) => {
@@ -156,17 +167,14 @@ export default function BlogSearch({ langs }: Props) {
 					{results.map((r) => (
 						<li class="blog-search__result" key={r.url}>
 							<a href={r.url}>
-								<span class="blog-search__title">
-									{r.meta.title ?? r.url}
-								</span>
-								{/* Pagefind returns excerpt HTML with <mark> around hits. */}
+								<span class="blog-search__title">{r.title ?? r.url}</span>
+								{/* excerpt HTML has <mark> around the match (Pagefind's, or
+								    makeExcerpt's for CN/JP) */}
 								<span
 									class="blog-search__excerpt"
 									dangerouslySetInnerHTML={{ __html: r.excerpt }}
 								/>
-								{r.meta.date && (
-									<span class="blog-search__date">{r.meta.date}</span>
-								)}
+								{r.date && <span class="blog-search__date">{r.date}</span>}
 							</a>
 						</li>
 					))}

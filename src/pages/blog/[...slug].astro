@@ -37,8 +37,11 @@ const showToc = tocHeadings.length >= 3;
 			</aside>
 		)}
 		{/* data-pagefind-body scopes Pagefind's index to post articles only, so
-		    search never returns nav chrome or non-blog pages (see /blog/search). */}
-		<article data-pagefind-body>
+		    search never returns nav chrome or non-blog pages (see /blog/search).
+		    ONLY English posts are indexed by Pagefind; CN/JP posts are handled by
+		    substring search instead (see /blog/search-cjk.json), because Pagefind's
+		    word+prefix matching hides mid-word CJK characters. */}
+		<article data-pagefind-body={post.data.lang === 'en' ? true : undefined}>
 			<h1>{post.data.title}</h1>
 			{/* The frontmatter description as a standfirst under the title. It's real
 			    page text inside the indexed region, so it's searchable too (a word

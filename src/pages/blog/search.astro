@@ -3,11 +3,11 @@ import Layout from '../../layouts/Layout.astro';
 import BlogSearch from '../../components/BlogSearch';
 import { getPublishedPosts } from '../../lib/posts';
 
-// Languages that actually have posts → one Pagefind index each, merged by the
-// island so a single box searches every language. If any are CJK, load the CJK
-// fonts so Chinese/Japanese result titles + excerpts render in their own faces.
-const langs = [...new Set((await getPublishedPosts()).map((p) => p.data.lang))];
-const cjk = langs.some((l) => l === 'zh-Hans' || l === 'ja');
+// If any CJK posts exist, load the CJK fonts so Chinese/Japanese result titles
+// and excerpts render in their own faces.
+const cjk = (await getPublishedPosts()).some(
+	(p) => p.data.lang === 'zh-Hans' || p.data.lang === 'ja',
+);
 ---
 
 <Layout title="Search" cjk={cjk}>
@@ -17,9 +17,9 @@ const cjk = langs.some((l) => l === 'zh-Hans' || l === 'ja');
 		<span aria-hidden="true"> · </span>
 		<a href="/blog/tags">Tags</a>
 	</p>
-	{/* The one interactive island on the content side. Pagefind indexes only post
-	    articles (data-pagefind-body); the island merges every language's index. */}
-	<BlogSearch client:load langs={langs} />
+	{/* The one interactive island on the content side: Pagefind for English posts,
+	    substring search for CN/JP posts (see BlogSearch). */}
+	<BlogSearch client:load />
 	<noscript>
 		<p>Search needs JavaScript. Browse <a href="/blog/tags">by tag</a> or the
 		<a href="/blog">full list</a> instead.</p>
