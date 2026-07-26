@@ -1,5 +1,5 @@
 ---
-title: 'Authoring Playground'
+title: 'Cheatsheet'
 description: 'My own reference for how to write posts here — frontmatter, code blocks, math, callouts, and everything the reading-room design styles.'
 pubDate: 2026-07-23
 tags: ['meta', 'authoring', 'reference']
@@ -20,12 +20,12 @@ has no `description`.
 ## Frontmatter and file layout
 
 Each post is a folder — `src/content/blog/<slug>/index.md` — so images can sit
-next to the prose. The URL is the folder name (`authoring-playground` →
-`/blog/authoring-playground`); the date lives in frontmatter, not the filename.
+next to the prose. The URL is the folder name (`cheatsheet` →
+`/blog/cheatsheet`); the date lives in frontmatter, not the filename.
 
 ```yaml
 ---
-title: 'Authoring Playground'          # required
+title: 'Cheatsheet'                     # required
 description: 'One-line card blurb…'     # optional → falls back to the excerpt
 pubDate: 2026-07-23                     # required; drives sort order
 updatedDate: 2026-07-24                 # optional
