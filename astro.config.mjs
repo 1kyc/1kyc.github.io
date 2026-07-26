@@ -7,6 +7,7 @@ import pagefind from 'astro-pagefind';
 import expressiveCode from 'astro-expressive-code';
 
 // Content-pipeline plugins (see src/lib/*).
+import { unified } from '@astrojs/markdown-remark';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import remarkDirective from 'remark-directive';
@@ -23,25 +24,27 @@ export default defineConfig({
 	// through the devcontainer's forwarded port (it otherwise binds IPv6-only).
 	server: { host: true },
 	markdown: {
-		// Astro keeps gfm + smart punctuation on by default and runs these on top.
-		// EC takes over fenced-code rendering (it sets markdown.syntaxHighlight
-		// false for us and injects itself into the pipeline), so the old Shiki
-		// dual-theme config is gone — migrated into the expressiveCode() integration
-		// below.
-		remarkPlugins: [
-			// Math: `$…$` / `$$…$$` → math nodes for rehype-katex to render.
-			remarkMath,
-			// Callouts: enable `:::name` directives, then rewrite ours to <aside>.
-			// remarkDirective MUST precede remarkCallouts (it parses the syntax).
-			remarkDirective,
-			remarkCallouts,
-		],
-		rehypePlugins: [
-			// KaTeX: render math to HTML+CSS at BUILD time (browser gets no JS). Its
-			// stylesheet is self-hosted, loaded per-page via <KatexStyles> (only on
-			// posts that contain math).
-			rehypeKatex,
-		],
+		// Astro 6.4 deprecated the top-level markdown.remarkPlugins/rehypePlugins in
+		// favor of a processor built with unified() from @astrojs/markdown-remark.
+		// gfm + smart punctuation stay on by default; EC detects this unified
+		// processor and injects its fenced-code rehype plugin into it (which is why
+		// expressiveCode() must still come BEFORE mdx() in integrations).
+		processor: unified({
+			remarkPlugins: [
+				// Math: `$…$` / `$$…$$` → math nodes for rehype-katex to render.
+				remarkMath,
+				// Callouts: enable `:::name` directives, then rewrite ours to <aside>.
+				// remarkDirective MUST precede remarkCallouts (it parses the syntax).
+				remarkDirective,
+				remarkCallouts,
+			],
+			rehypePlugins: [
+				// KaTeX: render math to HTML+CSS at BUILD time (browser gets no JS). Its
+				// stylesheet is self-hosted, loaded per-page via <KatexStyles> (only on
+				// posts that contain math).
+				rehypeKatex,
+			],
+		}),
 	},
 	integrations: [
 		// Expressive Code MUST come BEFORE mdx() so it wraps the MDX pipeline.
