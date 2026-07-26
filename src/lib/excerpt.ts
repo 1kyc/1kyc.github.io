@@ -6,6 +6,9 @@ const MORE_MARKER = '<!--more-->';
 /** Strip common markdown so a paragraph reads as plain text. */
 function stripMarkdown(text: string): string {
 	return text
+		// inline HTML tags (e.g. <br> line breaks in poems) -> space, so they don't
+		// surface as literal "&lt;br&gt;" in an excerpt
+		.replace(/<[^>]+>/g, ' ')
 		// images: ![alt](url) -> alt
 		.replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
 		// links: [text](url) -> text
