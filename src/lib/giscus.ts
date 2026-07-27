@@ -31,9 +31,9 @@ export const GISCUS = {
 	repo: '1kyc/1kyc.github.io',
 	repoId: 'R_kgDOS9HQaA',
 	category: 'Announcements',
-	/** REQUIRED for reliable comment creation — paste the DIC_… id (see SETUP §3).
+	/** REQUIRED for reliable comment creation — the DIC_… id (see SETUP §3).
 	 *  Empty falls back to name-only resolution, which can't create new discussions. */
-	categoryId: '',
+	categoryId: 'DIC_kwDOS9HQaM4DB_wD',
 	mapping: 'pathname',
 } as const;
 
