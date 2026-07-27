@@ -37,16 +37,15 @@ export const GISCUS = {
 	mapping: 'pathname',
 } as const;
 
-/** Map a post's content language to a giscus UI locale (widget chrome). */
-export function giscusLang(lang: string | undefined): string {
-	if (lang === 'zh-Hans') return 'zh-CN';
-	if (lang === 'ja') return 'ja';
-	return 'en';
-}
+// Per-language facts for the comments UI, one row each: the giscus UI locale
+// (widget chrome) and the localized section heading. Add a language = add a row.
+const COMMENTS_I18N = {
+	'zh-Hans': { locale: 'zh-CN', heading: '评论' },
+	ja: { locale: 'ja', heading: 'コメント' },
+	en: { locale: 'en', heading: 'Comments' },
+} as const;
 
-/** The section heading, localized to match the post (and the giscus UI locale). */
-export function commentsHeading(lang: string | undefined): string {
-	if (lang === 'zh-Hans') return '评论';
-	if (lang === 'ja') return 'コメント';
-	return 'Comments';
+/** Resolve a post's language to its comments UI locale + heading (falls back to en). */
+export function commentsI18n(lang: string | undefined) {
+	return COMMENTS_I18N[lang as keyof typeof COMMENTS_I18N] ?? COMMENTS_I18N.en;
 }
