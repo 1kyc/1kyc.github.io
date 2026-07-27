@@ -91,19 +91,21 @@ const isActive = (href: string) =>
 		    palette are already painted by the no-FOUC head script and the CSS
 		    theme selectors; this only flips the choice and syncs the aria-label. */}
 		<script>
+			import { effectiveTheme, THEME_CHANGE_EVENT } from '../lib/theme';
 			const btn = document.querySelector('.theme-toggle');
 			if (btn) {
 				const root = document.documentElement;
-				const effective = () =>
-					root.dataset.theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
 				const setLabel = () =>
-					btn.setAttribute('aria-label', effective() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme');
+					btn.setAttribute('aria-label', effectiveTheme() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme');
 				setLabel();
 				btn.addEventListener('click', () => {
-					const next = effective() === 'dark' ? 'light' : 'dark';
+					const next = effectiveTheme() === 'dark' ? 'light' : 'dark';
 					root.dataset.theme = next;
 					try { localStorage.setItem('theme', next); } catch (e) {}
 					setLabel();
+					// Announce the flip so out-of-cascade consumers (e.g. the giscus
+					// iframe) can react without spying on this DOM write.
+					window.dispatchEvent(new CustomEvent(THEME_CHANGE_EVENT));
 				});
 			}
 		</script>

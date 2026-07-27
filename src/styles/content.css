@@ -1163,7 +1163,40 @@ article > .tags {
 }
 
 /* -----------------------------------------------------------------------------
-   19. ACCESSIBILITY — reduced motion
+   19. COMMENTS — giscus (GitHub Discussions), on a post page
+   <Comments> renders below the article, OUTSIDE .post-layout, so it centers on
+   the reading measure independent of the TOC grid (in wide mode <main> widens to
+   seat the sidebar; max-width + auto margins keep the comments aligned with the
+   article column). The giscus iframe themes ITSELF from public/giscus/{light,
+   dark}.css — these rules only style our wrapper: the separator, heading, and the
+   min-height that reserves space so the lazy load doesn't jolt the page. The
+   widget only appears once scrolled into view (no giscus.app request before).
+   --------------------------------------------------------------------------- */
+.comments {
+	max-width: var(--measure);
+	margin: var(--space-6) auto 0;
+	padding-top: var(--space-5);
+	border-top: 1px solid var(--border);
+}
+.comments-heading {
+	/* the border-top + padding already opens the section; drop the heading's own
+	   space-before so the rule-to-title gap stays tight */
+	margin-top: 0;
+	font-size: var(--fs-h3);
+}
+/* Reserve vertical space for the not-yet-loaded widget so scrolling past, then
+   loading, doesn't shove content around. Roughly the height of giscus's compose
+   box + empty state. */
+.comments .giscus {
+	min-height: 12rem;
+}
+.comments-fallback {
+	color: var(--meta);
+	font-size: var(--fs-sm);
+}
+
+/* -----------------------------------------------------------------------------
+   20. ACCESSIBILITY — reduced motion
    These pages have no ambient animation by design; the only motion is the tiny
    hover color/underline transitions. Honor the preference and drop even those.
    --------------------------------------------------------------------------- */

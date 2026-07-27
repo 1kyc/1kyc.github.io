@@ -1,0 +1,117 @@
+/* =============================================================================
+   Reading-room — giscus LIGHT theme (self-hosted, no third-party theme host).
+   -----------------------------------------------------------------------------
+   The light twin of public/giscus/dark.css. Mirrors the LIGHT design tokens in
+   src/styles/content.css §1b — warm ivory paper, cool slate ink, forest-green
+   accent — so the comment widget matches a post on paper. giscus applies these
+   to <main> inside its iframe; hard-coded because the iframe can't read the
+   page's CSS custom properties. Keep in sync with content.css (light) + dark.css.
+   Token map: --bg #f4f1ea · --surface #eae4d8 · --border #d9d2c4 ·
+   --text #1e242e · --meta #545b66 · --muted #7c8492 · --accent #1a7d3a (green) ·
+   --brand #a45a10 (amber).
+   ============================================================================= */
+main {
+	/* --- syntax highlighting (code inside comments) — GitHub light --- */
+	--color-prettylights-syntax-comment: #6e7781;
+	--color-prettylights-syntax-constant: #0550ae;
+	--color-prettylights-syntax-entity: #8250df;
+	--color-prettylights-syntax-storage-modifier-import: #24292f;
+	--color-prettylights-syntax-entity-tag: #116329;
+	--color-prettylights-syntax-keyword: #cf222e;
+	--color-prettylights-syntax-string: #0a3069;
+	--color-prettylights-syntax-variable: #953800;
+	--color-prettylights-syntax-brackethighlighter-unmatched: #82071e;
+	--color-prettylights-syntax-invalid-illegal-text: #f6f8fa;
+	--color-prettylights-syntax-invalid-illegal-bg: #82071e;
+	--color-prettylights-syntax-carriage-return-text: #f6f8fa;
+	--color-prettylights-syntax-carriage-return-bg: #cf222e;
+	--color-prettylights-syntax-string-regexp: #116329;
+	--color-prettylights-syntax-markup-list: #3b2300;
+	--color-prettylights-syntax-markup-heading: #0550ae;
+	--color-prettylights-syntax-markup-italic: #24292f;
+	--color-prettylights-syntax-markup-bold: #24292f;
+	--color-prettylights-syntax-markup-deleted-text: #82071e;
+	--color-prettylights-syntax-markup-deleted-bg: #ffebe9;
+	--color-prettylights-syntax-markup-inserted-text: #116329;
+	--color-prettylights-syntax-markup-inserted-bg: #dafbe1;
+	--color-prettylights-syntax-markup-changed-text: #953800;
+	--color-prettylights-syntax-markup-changed-bg: #ffd8b5;
+	--color-prettylights-syntax-markup-ignored-text: #eaeef2;
+	--color-prettylights-syntax-markup-ignored-bg: #0550ae;
+	--color-prettylights-syntax-meta-diff-range: #8250df;
+	--color-prettylights-syntax-brackethighlighter-angle: #57606a;
+	--color-prettylights-syntax-sublimelinter-gutter-mark: #8c959f;
+	--color-prettylights-syntax-constant-other-reference-link: #0a3069;
+
+	/* --- foreground ink --- */
+	--color-fg-default: #1e242e;   /* --text */
+	--color-fg-muted: #545b66;     /* --meta */
+	--color-fg-subtle: #7c8492;    /* --muted */
+
+	/* --- surfaces --- */
+	--color-canvas-default: #f4f1ea;  /* --bg */
+	--color-canvas-overlay: #eae4d8;  /* --surface */
+	--color-canvas-inset: #efe9df;    /* a touch under --bg — input wells */
+	--color-canvas-subtle: #eae4d8;   /* --surface */
+
+	--color-border-default: #d9d2c4;  /* --border */
+	--color-border-muted: #e2dccf;    /* between --surface and --border */
+	--color-neutral-muted: rgb(124 132 146 / 20%);
+
+	/* --- accent = forest green (links, focus, emphasis) --- */
+	--color-accent-fg: #1a7d3a;        /* --accent */
+	--color-accent-emphasis: #1a7d3a;
+	--color-accent-muted: rgb(26 125 58 / 40%);
+	--color-accent-subtle: rgb(26 125 58 / 10%);
+
+	/* --- semantic --- */
+	--color-success-fg: #1a7d3a;
+	--color-attention-fg: #a45a10;     /* --brand (amber) */
+	--color-attention-muted: rgb(164 90 16 / 40%);
+	--color-attention-subtle: rgb(164 90 16 / 15%);
+	--color-danger-fg: #cf222e;
+	--color-danger-muted: rgb(207 34 46 / 40%);
+	--color-danger-subtle: rgb(207 34 46 / 10%);
+
+	/* --- neutral buttons = the site's surface furniture --- */
+	--color-btn-text: #1e242e;
+	--color-btn-bg: #eae4d8;
+	--color-btn-border: #d9d2c4;
+	--color-btn-shadow: 0 0 transparent;
+	--color-btn-inset-shadow: 0 0 transparent;
+	--color-btn-hover-bg: #e2dccf;
+	--color-btn-hover-border: #cabfa9;
+	--color-btn-active-bg: #d9d2c4;
+	--color-btn-active-border: #cabfa9;
+	--color-btn-selected-bg: #e2dccf;
+
+	/* --- primary (submit) button = deep green with white ink --- */
+	--color-btn-primary-text: #ffffff;
+	--color-btn-primary-bg: #1a7d3a;
+	--color-btn-primary-border: rgb(0 0 0 / 12%);
+	--color-btn-primary-shadow: 0 0 transparent;
+	--color-btn-primary-inset-shadow: 0 0 transparent;
+	--color-btn-primary-hover-bg: #166b32;
+	--color-btn-primary-hover-border: rgb(0 0 0 / 12%);
+	--color-btn-primary-selected-bg: #145d2b;
+	--color-btn-primary-disabled-text: rgb(255 255 255 / 70%);
+	--color-btn-primary-disabled-bg: rgb(26 125 58 / 60%);
+	--color-btn-primary-disabled-border: transparent;
+
+	--color-action-list-item-default-hover-bg: rgb(84 91 102 / 10%);
+	--color-segmented-control-bg: rgb(124 132 146 / 15%);
+	--color-segmented-control-button-bg: #f4f1ea;
+	--color-segmented-control-button-selected-border: #cabfa9;
+
+	--color-social-reaction-bg-hover: #e2dccf;
+	--color-social-reaction-bg-reacted-hover: rgb(26 125 58 / 15%);
+
+	--color-primer-shadow-inset: 0 0 transparent;
+
+	color-scheme: light;
+}
+
+/* Seat the widget directly on the page background (no off-tone rectangle). */
+main {
+	background-color: var(--color-canvas-default);
+}
