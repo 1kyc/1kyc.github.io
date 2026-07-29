@@ -51,10 +51,22 @@ const IDENTITY = Object.fromEntries(
 const MANIPULATOR = {
 	home: 'HARMONY',
 };
+// alchemy (falling-sand): each destination's key is the PRODUCT SUBSTANCE the
+// visitor brews on the canvas (fire+sand→glass, fire+water→steam,
+// water+seed→plant, water+metal→rust). The product name IS the solution key —
+// the sim reproduces it byte-for-byte when the product's cell count crosses
+// its discovery threshold.
+const ALCHEMY = {
+	home: 'glass',
+	blog: 'steam',
+	projects: 'plant',
+	about: 'rust',
+};
 const MAZE_KEYS = {
 	wordsearch: IDENTITY,
 	backdoors: IDENTITY,
 	manipulator: MANIPULATOR,
+	alchemy: ALCHEMY,
 };
 
 /**

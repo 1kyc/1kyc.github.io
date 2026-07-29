@@ -1,0 +1,22 @@
+[
+	{
+		"key": "glass",
+		"label": "Home",
+		"cipher": "3c42755479"
+	},
+	{
+		"key": "steam",
+		"label": "Blog",
+		"cipher": "107d452b2b"
+	},
+	{
+		"key": "plant",
+		"label": "Projects",
+		"cipher": "b9743ff85ed3673554"
+	},
+	{
+		"key": "rust",
+		"label": "About",
+		"cipher": "7d7e87a69995"
+	}
+]

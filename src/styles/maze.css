@@ -1049,6 +1049,339 @@ body {
 .orbit__doors a:focus-visible::before { color: var(--accent); }
 
 /* -----------------------------------------------------------------------------
+   7c. ALCHEMY — the falling-sand cellular-automaton maze.
+   A pixel-physics sandbox: paint elements, let them react, brew the four
+   product substances (glass / steam / plant / rust) that unseal the vials.
+
+   Class map (what the Preact component applies):
+     .alch              wrapper column (stage + tray + slots)
+     .alch__stage       chrome frame around the canvas (panel look)
+     .alch__canvas      the <canvas> — crisp pixel scaling
+     .alch__tray        brush selector strip (element buttons + clear)
+     .alch__el          one element button
+       .alch__el--on      the selected brush
+     .alch__el-icon     the 7×7 pixel-art SVG inside the button
+     .alch__el-name     tiny label under the button (supplementary; the
+                        button's aria-label is the accessible name)
+     .alch__clear       "clear" reset, styled like .orbit__reset
+     .alch__slots       the four discovery slots
+     .alch__slot        one slot (a <div> while locked, an <a> once
+                        revealed — same class, state via modifier)
+       .alch__slot--glass / --steam / --plant / --rust   product identity
+       .alch__slot--revealed                             solved → real link
+     .alch__sigil       the 7×7 pixel rune SVG inside a slot
+     .alch__slot-name   destination label line (empty while locked, shows
+                        "···"-style dots via CSS so reveal causes no shift)
+
+   How the COMPONENT drives state:
+     - Selected brush:   toggle .alch__el--on.
+     - Brew progress:    per-slot custom property --brew (0..1), set inline by
+                         JS as the visitor accumulates a product; the sigil
+                         warms from --muted toward the product color.
+     - Reveal:           add .alch__slot--revealed (and swap the node to <a>).
+                         The one-shot `alch-reveal` pop is CSS; reduced motion
+                         kills it via the global block in section 8.
+     - Toast:            reuse the existing `.word-found` element ("> glass").
+     - Hint:             reuse `.maze__hint`.
+
+   SIM PALETTE (single source of truth): the JS simulation reads these custom
+   properties once at mount via getComputedStyle rather than hard-coding hex,
+   so palette tweaks stay in CSS. The canvas paints its own fixed void color
+   (--alch-void) — the palette is tuned against it and is independent of page
+   theming (the landing is dark-only today).
+   --------------------------------------------------------------------------- */
+
+.alch {
+	/* ---- simulation void (canvas background — fixed, theme-independent) ---- */
+	--alch-void:   #0b0e14;
+
+	/* ---- elements (shade 1 = dominant fill, shade 2 = dither/accent) ---- */
+	--px-sand-1:   #dcae54;
+	--px-sand-2:   #b98e3e;
+	--px-water-1:  #2f7fd6;
+	--px-water-2:  #4a9be8;
+	--px-fire-1:   #ffc23d;   /* hot core */
+	--px-fire-2:   #ff7a33;   /* flame body */
+	--px-ember:    #b8401f;   /* fire decaying out */
+	--px-seed-1:   #96a83c;
+	--px-seed-2:   #6f7f2a;
+	--px-metal-1:  #97a3b2;
+	--px-metal-2:  #6d7987;
+	--px-oil-1:    #664733;
+	--px-oil-2:    #4e3728;
+	--px-stone-1:  #49525f;
+	--px-stone-2:  #333b46;
+
+	/* ---- products (each one is a discovery slot's identity color) ---- */
+	--px-glass-1:  #aee3ea;
+	--px-glass-2:  #7fc4cf;
+	--px-steam-1:  #a7b8c9;
+	--px-steam-2:  #8397ab;
+	--px-plant-1:  #4bcf74;   /* deliberately kin to --accent: alive = active */
+	--px-plant-2:  #2f9a52;
+	--px-rust-1:   #a44f27;
+	--px-rust-2:   #7e3c1f;
+
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--space-3);
+	width: 100%;
+	max-width: 560px;
+}
+
+/* STAGE — the alembic. Same panel chrome family as .grid / .orbit__stage.
+   4:3 world; the canvas fills it edge to edge. Sim resolution 128×96 is the
+   recommended fit (integer 4× scale at the 512px max width). */
+.alch__stage {
+	position: relative;
+	width: min(92vw, 512px);
+	aspect-ratio: 4 / 3;
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	overflow: hidden;
+	background: var(--alch-void);
+	box-shadow:
+		inset 0 0 0 1px color-mix(in srgb, var(--brand) 4%, transparent),
+		0 20px 60px -30px #000;
+}
+
+.alch__canvas {
+	display: block;
+	width: 100%;
+	height: 100%;
+	image-rendering: pixelated;
+	image-rendering: crisp-edges;   /* Firefox fallback name */
+	cursor: crosshair;
+	touch-action: none;             /* the brush owns the drag gesture */
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+/* TRAY — brush selector. A wrapping strip of ≥44px square element buttons,
+   each holding a 7×7 pixel-art icon (28px render = 4× integer scale) and a
+   tiny supplementary name. Selected brush = accent ring + lit label. */
+.alch__tray {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	align-items: flex-start;
+	gap: var(--space-2);
+	width: min(92vw, 512px);
+	padding: 0 var(--space-1);
+}
+
+.alch__el {
+	appearance: none;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--space-1);
+	padding: 0;
+	background: none;
+	border: none;
+	cursor: pointer;
+	user-select: none;
+	-webkit-user-select: none;
+	-webkit-touch-callout: none;
+}
+
+/* the swatch tile — the actual visual button body */
+.alch__el-icon {
+	display: grid;
+	place-items: center;
+	width: 2.75rem;                 /* 44px tap target */
+	height: 2.75rem;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	opacity: 0.8;                   /* idle brushes sit back a little */
+	transition:
+		opacity var(--dur) var(--ease),
+		border-color var(--dur) var(--ease),
+		box-shadow var(--dur) var(--ease);
+}
+.alch__el-icon svg {
+	display: block;
+	width: 28px;                    /* 7×7 grid at 4× — stays crisp */
+	height: 28px;
+	shape-rendering: crispEdges;
+}
+
+.alch__el-name {
+	font-family: var(--font-mono);
+	font-size: var(--fs-xs);
+	letter-spacing: 0.06em;
+	color: var(--muted);
+	text-transform: lowercase;
+	transition: color var(--dur) var(--ease);
+}
+
+.alch__el:hover .alch__el-icon,
+.alch__el:focus-visible .alch__el-icon {
+	opacity: 1;
+	border-color: color-mix(in srgb, var(--text) 25%, transparent);
+}
+.alch__el:focus-visible { outline: none; }
+.alch__el:focus-visible .alch__el-icon {
+	border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+	box-shadow: 0 0 8px -3px var(--glow);
+}
+
+/* selected brush — green ring + lit label (matches the site's "active" cue) */
+.alch__el--on .alch__el-icon {
+	opacity: 1;
+	border-color: var(--accent);
+	box-shadow: 0 0 10px -3px var(--glow);
+}
+.alch__el--on .alch__el-name {
+	color: var(--text);
+}
+
+/* the erase brush's X icon rides currentColor (muted → text when selected) */
+.alch__el--erase .alch__el-icon { color: var(--muted); }
+.alch__el--erase.alch__el--on .alch__el-icon,
+.alch__el--erase:hover .alch__el-icon { color: var(--text); }
+
+/* "clear" — a quiet reset, same voice as .orbit__reset */
+.alch__clear {
+	align-self: center;
+	padding: var(--space-1) var(--space-3);
+	font-family: var(--font-mono);
+	font-size: var(--fs-xs);
+	letter-spacing: 0.08em;
+	color: var(--muted);
+	background: none;
+	border: 1px dashed var(--border);
+	border-radius: var(--radius);
+	cursor: pointer;
+	user-select: none;
+	-webkit-user-select: none;
+	-webkit-touch-callout: none;
+	transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.alch__clear:hover,
+.alch__clear:focus-visible {
+	color: var(--accent);
+	border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+	outline: none;
+}
+
+/* SLOTS — the four sealed vials. Locked: a dashed tile with a dim pixel rune
+   (the PRODUCT's sigil — a brewing hint, never the destination name). The
+   per-slot --brew (0..1, set inline by JS) warms the rune from --muted toward
+   the product color as the visitor gets closer, so progress reads without
+   words. Revealed: the tile becomes a real link, tinted with its product. */
+.alch__slots {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: var(--space-2);
+	width: min(92vw, 512px);
+}
+
+.alch__slot {
+	--brew: 0;
+	--slot-c: var(--muted);         /* overridden by the product modifiers */
+
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var(--space-1);
+	min-height: 4.5rem;
+	padding: var(--space-2);
+
+	font-family: var(--font-mono);
+	text-decoration: none;
+	background: transparent;
+	border: 1px dashed var(--border);
+	border-radius: var(--radius);
+	user-select: none;
+	-webkit-user-select: none;
+	transition:
+		border-color var(--dur) var(--ease),
+		background-color var(--dur) var(--ease),
+		box-shadow var(--dur) var(--ease);
+}
+
+.alch__slot--glass { --slot-c: var(--px-glass-1); }
+.alch__slot--steam { --slot-c: var(--px-steam-1); }
+.alch__slot--plant { --slot-c: var(--px-plant-1); }
+.alch__slot--rust  { --slot-c: var(--px-rust-1); }
+
+.alch__sigil {
+	display: block;
+	width: 21px;                    /* 7×7 grid at 3× */
+	height: 21px;
+	shape-rendering: crispEdges;
+	/* locked: dim rune that warms toward the product color with --brew */
+	color: color-mix(in srgb, var(--slot-c) calc(var(--brew) * 100%), var(--muted));
+	opacity: calc(0.45 + var(--brew) * 0.55);
+	transition: color var(--dur) var(--ease), opacity var(--dur) var(--ease);
+}
+
+/* the label line exists in BOTH states so reveal never shifts layout.
+   Locked: CSS paints a quiet "···"; the element's text is empty. */
+.alch__slot-name {
+	min-height: 1.2em;
+	font-size: var(--fs-xs);
+	letter-spacing: 0.1em;
+	line-height: 1.2;
+	text-transform: lowercase;
+	color: var(--text);
+}
+.alch__slot:not(.alch__slot--revealed) .alch__slot-name::before {
+	content: "\00B7\00B7\00B7";     /* ··· */
+	color: var(--muted);
+	opacity: 0.6;
+	letter-spacing: 0.2em;
+}
+
+/* revealed — a lit vial: product-tinted border/fill, rune at full color,
+   destination label shown. The whole tile is the <a>. */
+.alch__slot--revealed {
+	border-style: solid;
+	border-color: color-mix(in srgb, var(--slot-c) 45%, transparent);
+	background: color-mix(in srgb, var(--slot-c) 10%, transparent);
+	animation: alch-reveal 480ms var(--ease);
+}
+.alch__slot--revealed .alch__sigil {
+	--brew: 1;                      /* pins color + opacity at full */
+	filter: drop-shadow(0 0 4px color-mix(in srgb, var(--slot-c) 55%, transparent));
+}
+.alch__slot--revealed:hover,
+.alch__slot--revealed:focus-visible {
+	outline: none;
+	border-color: var(--slot-c);
+	box-shadow: 0 0 12px -4px color-mix(in srgb, var(--slot-c) 70%, transparent);
+}
+.alch__slot--revealed:hover .alch__slot-name,
+.alch__slot--revealed:focus-visible .alch__slot-name {
+	color: var(--accent);           /* link-hover speaks the site's green */
+}
+
+/* one-shot pop when a vial unseals (killed by the section-8 reduce block) */
+@keyframes alch-reveal {
+	0%   { transform: scale(1);    box-shadow: 0 0 0 0 transparent; }
+	40%  { transform: scale(1.06); box-shadow: 0 0 16px -2px color-mix(in srgb, var(--slot-c) 70%, transparent); }
+	100% { transform: scale(1);    box-shadow: 0 0 0 0 transparent; }
+}
+
+/* NARROW PHONES (≤380px) — tighten, never scroll horizontally.
+   Slots stay 4-up (4 × ~58px + gaps fits 360px); tray wraps naturally. */
+@media (max-width: 380px) {
+	.alch { gap: var(--space-2); }
+	.alch__el-icon { width: 2.5rem; height: 2.5rem; }
+	.alch__el-name { display: none; }  /* aria-label still names the button */
+	.alch__slot { min-height: 4rem; padding: var(--space-1); }
+}
+
+/* REDUCED MOTION — CSS motion here (reveal pop, transitions) is already killed
+   by section 8's global block below. The CANVAS is JS-driven, so the component
+   also honors it: step the sim only while painting + a short settle window,
+   no idle animation, no temporal fire flicker (spatial dither instead). */
+
+/* -----------------------------------------------------------------------------
    8. ACCESSIBILITY — reduced motion
    Kill the caret blink, glow pulses, and slide transitions for users who ask.
    States still change (color/contrast), just without animation.
