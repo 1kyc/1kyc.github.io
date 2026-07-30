@@ -1,22 +1,22 @@
 [
 	{
 		"key": "house",
-		"label": "Home",
-		"cipher": "f98a7deb07"
+		"cipher": "f98a7deb07",
+		"labelCipher": "ee147c47"
 	},
 	{
 		"key": "scroll",
-		"label": "Blog",
-		"cipher": "ce08f1227b"
+		"cipher": "ce08f1227b",
+		"labelCipher": "39f8c9c6"
 	},
 	{
 		"key": "automaton",
-		"label": "Projects",
-		"cipher": "b6e19f3115a8a2deb8"
+		"cipher": "b6e19f3115a8a2deb8",
+		"labelCipher": "c605e32d3de25778"
 	},
 	{
 		"key": "mirror",
-		"label": "About",
-		"cipher": "2f74250e1608"
+		"cipher": "2f74250e1608",
+		"labelCipher": "8745fe410e"
 	}
 ]

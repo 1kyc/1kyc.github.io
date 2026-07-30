@@ -7,7 +7,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { getDestinations } from '../lib/destinations';
 import type { Destination } from '../lib/destinations';
-import { decodePath } from '../lib/crypto';
+import { decodeLabel, decodePath } from '../lib/crypto';
 import { useDecodedLinks } from '../lib/useDecodedLinks';
 
 const MAZE_ID = 'manipulator';
@@ -89,7 +89,7 @@ const MBS_POS: readonly [number, number, number] = [-2.7, 27, 35];
 
 // ---------------------------------------------------------------------------
 // Goal — one capture target, paired positionally with getDestinations() (a
-// single destination: HARMONY → Home). The goal is a GHOST END-EFFECTOR: a
+// single destination: HARMONY → its door). The goal is a GHOST END-EFFECTOR: a
 // translucent clone of the real EE posed at `pos`, oriented so its boresight
 // points along `facing`. "Dock to the shadow" — overlay the real EE onto the
 // ghost (reach its tip position AND aim its boresight along `facing`) to capture.
@@ -106,7 +106,7 @@ interface GoalDef {
 	facing: readonly [number, number, number];
 }
 const GOALS: readonly GoalDef[] = [
-	{ pos: [-1.86, 38.11, 27.64], facing: [0.82, -0.57, 0.02] }, // HARMONY → Home
+	{ pos: [-1.86, 38.11, 27.64], facing: [0.82, -0.57, 0.02] }, // HARMONY
 ];
 
 // Capture tolerances (forgiving) + the dwell that turns "in range" into a lock.
@@ -176,8 +176,9 @@ function ManipulatorFallback({
 			<p class="orbit__lead">manual dock — select a capture target</p>
 			<nav class="orbit__doors" aria-label="orbit targets">
 				<ul>
-					{links.map((item) => (
-						<li key={item.label}>
+					{links.map((item, i) => (
+						// positional key: labels start as identical placeholders
+						<li key={i}>
 							<a href={item.href || undefined}>{item.label}</a>
 						</li>
 					))}
@@ -216,6 +217,23 @@ function ManipulatorScene({
 
 	const mountRef = useRef<HTMLDivElement>(null);
 	const labelRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+	// Goal-marker text: decoded from each destination's labelCipher at mount
+	// (no goal name ships as plaintext); empty until the decode resolves.
+	const [goalLabels, setGoalLabels] = useState<string[]>(() =>
+		dests.map(() => ''),
+	);
+	useEffect(() => {
+		let alive = true;
+		Promise.all(
+			dests.map((d) => decodeLabel(d.labelCipher, d.key).catch(() => d.key)),
+		).then((labels) => {
+			if (alive) setGoalLabels(labels);
+		});
+		return () => {
+			alive = false;
+		};
+	}, []);
 
 
 	// Live joint angles in RADIANS — the render loop reads this every frame so the
@@ -872,10 +890,13 @@ function ManipulatorScene({
 			}
 			t.ghost?.scale.setScalar(t.baseScale * 1.4);
 
-			void decodePath(t.dest.cipher, t.dest.key)
-				.then((dest) => {
+			void Promise.all([
+				decodePath(t.dest.cipher, t.dest.key),
+				decodeLabel(t.dest.labelCipher, t.dest.key).catch(() => t.dest.key),
+			])
+				.then(([dest, label]) => {
 					if (!aliveRef.current) return; // maze switched mid-await
-					setToast(t.dest.label.toLowerCase());
+					setToast(label.toLowerCase());
 					navTimerRef.current = window.setTimeout(() => {
 						window.location.href = dest;
 					}, 700);
@@ -1059,7 +1080,7 @@ function ManipulatorScene({
 				<div ref={mountRef} class="orbit__viewport" />
 				{GOALS.map((_def, i) => (
 					<div
-						key={dests[i]?.label ?? i}
+						key={dests[i]?.key ?? i}
 						class="orbit__label orbit__label--goal"
 						ref={(el) => {
 							labelRefs.current[i] = el;
@@ -1067,7 +1088,7 @@ function ManipulatorScene({
 					>
 						<span class="orbit__label-ring" aria-hidden="true" />
 						<span class="orbit__label-text">
-							{(dests[i]?.label ?? '').toLowerCase()}
+							{(goalLabels[i] ?? '').toLowerCase()}
 						</span>
 					</div>
 				))}

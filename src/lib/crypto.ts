@@ -1,12 +1,14 @@
-// crypto.ts — runtime path decoder (Web Crypto API, with a pure-JS SHA-256
-// fallback for insecure contexts where crypto.subtle doesn't exist).
+// crypto.ts — runtime path/label decoder (Web Crypto API, with a pure-JS
+// SHA-256 fallback for insecure contexts where crypto.subtle doesn't exist).
 //
 // Mirrors scripts/gen-destinations.mjs byte-for-byte:
-//   keystream = SHA-256(utf8(solution))
-//   path[i]   = cipher[i] XOR keystream[i]
+//   path keystream  = SHA-256(utf8(solution))
+//   path[i]         = cipher[i]      XOR keystream[i]
+//   label keystream = SHA-256(utf8(solution + ':label'))   // SEPARATE stream:
+//   label[i]        = labelCipher[i] XOR labelStream[i]    // no two-time pad
 //
-// The real destination path is only recoverable with the correct solution word
-// (the maze answer), so it never has to ship as plaintext.
+// Neither the destination path nor its display label ships as plaintext; both
+// are only recoverable with the maze's solution key.
 
 // -- SHA-256 fallback ---------------------------------------------------------
 // `crypto.subtle` exists only in SECURE contexts. A dev/preview server reached
@@ -116,18 +118,10 @@ function hexToBytes(hex: string): Uint8Array {
 	return out;
 }
 
-/**
- * Recover a destination path from its cipher using the puzzle solution as key.
- * @param cipherHex hex-encoded XOR cipher (from destinations.json)
- * @param solution  the solved maze word (the decryption key)
- * @returns the plaintext path, e.g. "/somewhere"
- */
-export async function decodePath(
-	cipherHex: string,
-	solution: string,
-): Promise<string> {
+/** XOR `cipherHex` against SHA-256(keyString) and decode the result as UTF-8. */
+async function xorDecode(cipherHex: string, keyString: string): Promise<string> {
 	const cipher = hexToBytes(cipherHex);
-	const digest = await sha256(new TextEncoder().encode(solution));
+	const digest = await sha256(new TextEncoder().encode(keyString));
 	if (cipher.length > digest.length) {
 		throw new Error('cipher longer than keystream');
 	}
@@ -136,4 +130,26 @@ export async function decodePath(
 		out[i] = cipher[i] ^ digest[i];
 	}
 	return new TextDecoder().decode(out);
+}
+
+/**
+ * Recover a destination path from its cipher using the puzzle solution as key.
+ * @param cipherHex hex-encoded XOR cipher (from destinations.json)
+ * @param solution  the solved maze word (the decryption key)
+ * @returns the plaintext path, e.g. "/somewhere"
+ */
+export function decodePath(cipherHex: string, solution: string): Promise<string> {
+	return xorDecode(cipherHex, solution);
+}
+
+/**
+ * Recover a destination's display label from its labelCipher. Same scheme as
+ * decodePath but under the derived key `solution + ':label'` — a separate
+ * keystream, so the two ciphertexts never share a pad.
+ */
+export function decodeLabel(
+	labelCipherHex: string,
+	solution: string,
+): Promise<string> {
+	return xorDecode(labelCipherHex, `${solution}:label`);
 }

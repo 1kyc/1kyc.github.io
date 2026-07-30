@@ -6,15 +6,22 @@
 // when it is solved for that destination, so the path is only recoverable once
 // the visitor actually solves the maze.
 //
-//   keystream = SHA-256(utf8(key))             // 32 bytes
-//   cipher[i] = pathBytes[i] XOR keystream[i]  // paths are short (<= 32 bytes)
+//   keystream      = SHA-256(utf8(key))                 // 32 bytes
+//   cipher[i]      = pathBytes[i]  XOR keystream[i]     // paths <= 32 bytes
+//
+// The display LABEL is hidden the same way, but under a SEPARATE keystream —
+// never reuse the path keystream for a second plaintext (two-time pad: the
+// XOR of two ciphertexts under one keystream leaks plaintext relations):
+//
+//   labelStream    = SHA-256(utf8(key + ':label'))
+//   labelCipher[i] = labelBytes[i] XOR labelStream[i]
 //
 // Output: one file per maze, src/lib/destinations.<maze>.json — an array of
-// { key, label, cipher(hex) }. The real PATH string is intentionally absent
-// from every emitted JSON.
+// { key, cipher(hex), labelCipher(hex) }. Neither the real PATH nor the
+// human LABEL appears as plaintext in any emitted JSON.
 //
-// The runtime counterpart (src/lib/crypto.ts) mirrors this scheme byte-for-byte
-// using the Web Crypto API.
+// The runtime counterpart (src/lib/crypto.ts: decodePath / decodeLabel)
+// mirrors both derivations byte-for-byte using the Web Crypto API.
 
 import { createHash } from 'node:crypto';
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -33,16 +40,19 @@ const DESTINATIONS = {
 // Per maze: destinationId -> the solution KEY string that maze yields when
 // solved for that destination. The key is the XOR decryption key, so the maze
 // must be able to reproduce it byte-for-byte at solve time.
-//   - wordsearch: the key IS the hidden word (here == destination id).
-//   - backdoors:  the escape hatch; it just decodes, so keys are the ids.
+//   - wordsearch: the key IS the hidden word (currently == destination id —
+//     the words themselves are pending a user decision).
+//   - backdoors:  the escape hatch; it self-decodes at mount, so its keys
+//     ship BY DESIGN — but they are opaque tokens (k0..k3), never the goal
+//     names, so the table alone reads as noise.
 //   - (future) rubik: e.g. { home: 'U:white', blog: 'F:red', ... } — a
 //     canonical token derived only from the solved face, not the whole cube.
-// Both current mazes use the same trivial mapping: the solution key IS the
-// destination id. Derive that identity map once from DESTINATIONS instead of
-// spelling it out per maze (a future non-identity maze, e.g. rubik, gets its
-// own explicit map).
 const IDENTITY = Object.fromEntries(
 	Object.keys(DESTINATIONS).map((id) => [id, id]),
+);
+// backdoors: deliberately meaningless positional tokens (see note above).
+const BACKDOORS = Object.fromEntries(
+	Object.keys(DESTINATIONS).map((id, i) => [id, `k${i}`]),
 );
 // manipulator ("orbit"): each destination is a capture target with an orbital
 // codename. The codename IS the solution key — the string the target resolves to
@@ -64,7 +74,7 @@ const ALCHEMY = {
 };
 const MAZE_KEYS = {
 	wordsearch: IDENTITY,
-	backdoors: IDENTITY,
+	backdoors: BACKDOORS,
 	manipulator: MANIPULATOR,
 	alchemy: ALCHEMY,
 };
@@ -96,7 +106,12 @@ for (const [maze, keys] of Object.entries(MAZE_KEYS)) {
 	const entries = Object.entries(keys).map(([destId, key]) => {
 		const dest = DESTINATIONS[destId];
 		if (!dest) throw new Error(`unknown destination "${destId}" in maze "${maze}"`);
-		return { key, label: dest.label, cipher: encode(key, dest.path) };
+		return {
+			key,
+			cipher: encode(key, dest.path),
+			// separate keystream (key + ':label') — see the header note
+			labelCipher: encode(`${key}:label`, dest.label),
+		};
 	});
 	const outFile = resolve(outDir, `destinations.${maze}.json`);
 	writeFileSync(outFile, JSON.stringify(entries, null, '\t') + '\n', 'utf8');

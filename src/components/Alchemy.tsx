@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { JSX } from 'preact';
 import { getDestinations, findDestination } from '../lib/destinations';
-import { decodePath } from '../lib/crypto';
+import { decodeLabel, decodePath } from '../lib/crypto';
 
 const MAZE_ID = 'alchemy';
 
@@ -140,7 +140,7 @@ HEAT_FLECK[PULP] = 1;
 // Brushes. Grid order is FIXED (matches the CSS class-map contract): the five
 // phases in wuxing recitation order (金木水火土 — metal, wood, water, fire,
 // earth), then the ten derived seats sorted by goal-recipe sequence
-// home→blog→projects→about so unlocks tend to march left-to-right, then
+// house→scroll→automaton→mirror so unlocks tend to march left-to-right, then
 // erase. Derived materials start LOCKED and flip to live buttons in place the
 // first time the sim creates them.
 // ---------------------------------------------------------------------------
@@ -1287,21 +1287,21 @@ const ICONS: Record<string, readonly IconLayer[]> = {
 			px: [[1, 1], [5, 1], [2, 2], [4, 2], [3, 3], [2, 4], [4, 4], [1, 5], [5, 5]],
 		},
 	],
-	// house (home): peaked roof over hollow walls; the floor gap is the door
+	// house: peaked roof over hollow walls; the floor gap is the door
 	'sig-house': [
 		{
 			fill: 'currentColor',
 			px: [[3, 0], [2, 1], [4, 1], [1, 2], [5, 2], [0, 3, 1, 4], [6, 3, 1, 4], [1, 6, 2, 1], [4, 6, 2, 1]],
 		},
 	],
-	// scroll (blog): rolled ends, marked twice with ink
+	// scroll: rolled ends, marked twice with ink
 	'sig-scroll': [
 		{
 			fill: 'currentColor',
 			px: [[2, 0, 3, 1], [1, 1, 1, 5], [5, 1, 1, 5], [2, 6, 3, 1], [3, 2], [3, 4]],
 		},
 	],
-	// automaton (projects): a steam piston — vapor above (steam's own dither
+	// automaton: a steam piston — vapor above (steam's own dither
 	// cadence), head seated flush in the bore, rod driving out the open end
 	'sig-automaton': [
 		{
@@ -1309,7 +1309,7 @@ const ICONS: Record<string, readonly IconLayer[]> = {
 			px: [[1, 0], [3, 0], [5, 0], [0, 1, 1, 4], [6, 1, 1, 4], [1, 3, 5, 1], [3, 4, 1, 3]],
 		},
 	],
-	// mirror (about): an unbroken ring with a corner glint
+	// mirror: an unbroken ring with a corner glint
 	'sig-mirror': [
 		{
 			fill: 'currentColor',
@@ -1357,8 +1357,8 @@ function Icon({ id, class: cls }: { id: string; class?: string }): JSX.Element {
 // Component
 // ---------------------------------------------------------------------------
 
-// Slot order IS the destinations table order (home, blog, projects, about →
-// house, scroll, automaton, mirror).
+// Slot order IS the destinations table order (house, scroll, automaton,
+// mirror).
 const DESTS = getDestinations(MAZE_ID);
 const SLOT_INDEX: Record<string, number> = Object.fromEntries(
 	DESTS.map((d, i) => [d.key, i]),
@@ -1374,11 +1374,14 @@ export default function Alchemy(): JSX.Element {
 	const [freshIds, setFreshIds] = useState<ReadonlySet<string>>(() => new Set());
 	// artifact key -> decoded href, once discovered
 	const [revealed, setRevealed] = useState<Record<string, string>>({});
+	// artifact key -> decoded destination label; the artifact name stands in
+	// until (or if) its decode resolves
+	const [slotLabels, setSlotLabels] = useState<Record<string, string>>({});
 	const [toast, setToast] = useState<string | null>(null);
 	// artifact currently celebrated by the over-canvas popup (visual only —
 	// the .word-found toast is the announcement; the popup is aria-hidden).
-	// label is the destination's table label (shown lowercased, e.g. "home") —
-	// it is not secret (it ships in the JSON); only the PATH is cipher-hidden.
+	// label is the DECODED destination label (shown lowercased); the artifact
+	// name stands in until the label decode lands.
 	const [pop, setPop] = useState<{ key: string; label: string } | null>(null);
 
 	const rootRef = useRef<HTMLDivElement>(null);
@@ -1434,19 +1437,19 @@ export default function Alchemy(): JSX.Element {
 		const onDiscover = (key: string): void => {
 			const entry = findDestination(MAZE_ID, key);
 			if (!entry || !aliveRef.current) return;
-			// Feedback FIRST — the decode can fail (e.g. a malformed cipher), and
-			// feedback must not depend on it: the slot then reveals href-less,
-			// mirroring useDecodedLinks.
+			// Feedback FIRST — the decodes can fail (e.g. a malformed cipher), and
+			// feedback must not depend on them: the slot then reveals href-less
+			// (mirroring useDecodedLinks) with the artifact name as its label.
 			setRevealed((prev) => ({ ...prev, [key]: '' }));
 			showToast(`${key} — a door opens`);
 			// over-canvas popup; a fresh discovery replaces the current one
-			setPop({ key, label: entry.label });
+			setPop({ key, label: key });
 			if (popTimerRef.current !== null)
 				window.clearTimeout(popTimerRef.current);
 			popTimerRef.current = window.setTimeout(() => {
 				if (aliveRef.current) setPop(null);
 			}, POP_MS);
-			// the real path arrives when/if the decode resolves
+			// the real path + label arrive when/if their decodes resolve
 			decodePath(entry.cipher, entry.key)
 				.then((href) => {
 					if (!aliveRef.current) return;
@@ -1454,6 +1457,16 @@ export default function Alchemy(): JSX.Element {
 				})
 				.catch(() => {
 					/* decode failed — the slot stays revealed, just href-less */
+				});
+			decodeLabel(entry.labelCipher, entry.key)
+				.then((label) => {
+					if (!aliveRef.current) return;
+					setSlotLabels((prev) => ({ ...prev, [key]: label }));
+					// patch the popup only if it is still celebrating this artifact
+					setPop((p) => (p && p.key === key ? { key, label } : p));
+				})
+				.catch(() => {
+					/* label decode failed — the artifact name stays */
 				});
 		};
 		const sim = createSim({ onProgress, onDiscover, onUnlock });
@@ -1671,7 +1684,7 @@ export default function Alchemy(): JSX.Element {
 						<Icon id="ui-unlock" class="alch__pop-glyph" />
 						<div class="alch__pop-row">
 							<Icon id={`sig-${pop.key}`} class="alch__pop-sigil" />
-							{/* CSS lowercases — the goal page name, e.g. "home" */}
+							{/* the decoded door label (CSS lowercases) */}
 							<span class="alch__pop-name">{pop.label}</span>
 						</div>
 					</div>
@@ -1746,8 +1759,8 @@ export default function Alchemy(): JSX.Element {
 							ref={setEl}
 						>
 							<Icon id={`sig-${d.key}`} class="alch__sigil" />
-							{/* CSS lowercases the label */}
-							<span class="alch__slot-name">{d.label}</span>
+							{/* decoded label (CSS lowercases); artifact name until then */}
+							<span class="alch__slot-name">{slotLabels[d.key] ?? d.key}</span>
 						</a>
 					) : (
 						<div key={d.key} class={cls} style={style} ref={setEl}>

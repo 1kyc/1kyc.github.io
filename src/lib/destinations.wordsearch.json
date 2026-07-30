@@ -1,22 +1,22 @@
 [
 	{
 		"key": "home",
-		"label": "Home",
-		"cipher": "61c92f35e4"
+		"cipher": "61c92f35e4",
+		"labelCipher": "457e4ef0"
 	},
 	{
 		"key": "blog",
-		"label": "Blog",
-		"cipher": "f19752fa96"
+		"cipher": "f19752fa96",
+		"labelCipher": "617f9402"
 	},
 	{
 		"key": "projects",
-		"label": "Projects",
-		"cipher": "0a07b29a3dd787c1e2"
+		"cipher": "0a07b29a3dd787c1e2",
+		"labelCipher": "a3c0a2a104932898"
 	},
 	{
 		"key": "about",
-		"label": "About",
-		"cipher": "8b474c73eebf"
+		"cipher": "8b474c73eebf",
+		"labelCipher": "75ce604ec1"
 	}
 ]

@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { TargetedPointerEvent } from 'preact';
 import { getDestinations, findDestination } from '../lib/destinations';
-import { decodePath } from '../lib/crypto';
+import { decodeLabel, decodePath } from '../lib/crypto';
 
 const MAZE_ID = 'wordsearch';
 const SIZE = 10;
@@ -166,8 +166,11 @@ export default function WordSearch() {
 
 		// Decode first, then bail if the maze was switched during the await — so the
 		// resolved promise never locks cells, toasts, or schedules a nav timer on an
-		// unmounted component.
-		const dest = await decodePath(entry.cipher, entry.key);
+		// unmounted component. The toast label decodes alongside the path.
+		const [dest, label] = await Promise.all([
+			decodePath(entry.cipher, entry.key),
+			decodeLabel(entry.labelCipher, entry.key).catch(() => entry.key),
+		]);
 		if (!aliveRef.current) return;
 
 		// lock the cells in, confirm, then navigate
@@ -176,7 +179,7 @@ export default function WordSearch() {
 			for (const [r, c] of path) next.add(key(r, c));
 			return next;
 		});
-		setToast(entry.label.toLowerCase());
+		setToast(label.toLowerCase());
 		navTimerRef.current = window.setTimeout(() => {
 			window.location.href = dest;
 		}, 700);

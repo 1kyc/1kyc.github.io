@@ -27,8 +27,9 @@ export default function Backdoors() {
 			</div>
 			<nav class="backdoors__ls" aria-label="backdoors">
 				<ul>
-					{items.map((item) => (
-						<li key={item.label}>
+					{items.map((item, i) => (
+						// positional key: labels start as identical placeholders
+						<li key={i}>
 							<a href={item.href || undefined}>{item.label}</a>
 						</li>
 					))}
