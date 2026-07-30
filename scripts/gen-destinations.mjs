@@ -51,16 +51,16 @@ const IDENTITY = Object.fromEntries(
 const MANIPULATOR = {
 	home: 'HARMONY',
 };
-// alchemy (falling-sand): each destination's key is the PRODUCT SUBSTANCE the
-// visitor brews on the canvas (fire+sand→glass, fire+water→steam,
-// water+seed→plant, water+metal→rust). The product name IS the solution key —
-// the sim reproduces it byte-for-byte when the product's cell count crosses
-// its discovery threshold.
+// alchemy (falling-sand, v2 "wuxing"): each destination's key is the ARTIFACT
+// the visitor assembles on the canvas (a hollow brick build → house,
+// ink-stained paper → scroll, forged metal + steam → automaton,
+// glass over forged metal → mirror). The artifact name IS the solution key —
+// the sim reproduces it byte-for-byte when its pattern detector fires.
 const ALCHEMY = {
-	home: 'glass',
-	blog: 'steam',
-	projects: 'plant',
-	about: 'rust',
+	home: 'house',
+	blog: 'scroll',
+	projects: 'automaton',
+	about: 'mirror',
 };
 const MAZE_KEYS = {
 	wordsearch: IDENTITY,

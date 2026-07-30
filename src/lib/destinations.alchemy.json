@@ -1,22 +1,22 @@
 [
 	{
-		"key": "glass",
+		"key": "house",
 		"label": "Home",
-		"cipher": "3c42755479"
+		"cipher": "f98a7deb07"
 	},
 	{
-		"key": "steam",
+		"key": "scroll",
 		"label": "Blog",
-		"cipher": "107d452b2b"
+		"cipher": "ce08f1227b"
 	},
 	{
-		"key": "plant",
+		"key": "automaton",
 		"label": "Projects",
-		"cipher": "b9743ff85ed3673554"
+		"cipher": "b6e19f3115a8a2deb8"
 	},
 	{
-		"key": "rust",
+		"key": "mirror",
 		"label": "About",
-		"cipher": "7d7e87a69995"
+		"cipher": "2f74250e1608"
 	}
 ]

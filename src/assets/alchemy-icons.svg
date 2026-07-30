@@ -1,43 +1,90 @@
 <!--
-  alchemy-icons.svg — 7×7 pixel-art icons for the "alchemy" falling-sand maze.
+  alchemy-icons.svg — 7×7 pixel-art icons for the "alchemy" falling-sand maze,
+  v2 (wuxing). 20 symbols: 5 base brushes + 10 derived brushes + erase +
+  4 artifact sigils (house / scroll / automaton / mirror).
 
   HAND-OFF: a reference sprite. The developer should LIFT each <symbol>'s
   contents as inline JSX SVG in the Preact component (the site inlines all
-  icon SVG — see the selector ring in MazeApp.tsx); alternatively inline this
-  sprite once and <use href="#el-sand"/> etc. Either way the SVG must be
-  IN-DOCUMENT so the CSS custom properties (--px-*) cascade into the fills.
+  icon SVG — see ICONS in Alchemy.tsx); alternatively inline this sprite once
+  and <use href="#el-wood"/> etc. Either way the SVG must be IN-DOCUMENT so
+  the CSS custom properties (the px-* vars) cascade into the fills.
 
   Conventions:
     - viewBox 0 0 7 7, every pixel is a 1×1 <rect>, shape-rendering crispEdges.
-    - Element icons: two <g> layers filled with the element's shade vars
-      (fallback hex included so the file previews standalone).
-    - Product sigils + erase: fill="currentColor" so CSS drives their color
-      (the slot's --brew mix, the erase button's muted/text).
-    - Render element icons at 28px (4×) in the tray, sigils at 21px (3×) in
+    - Brush icons (base AND derived — derived materials unlock as brushes):
+      two <g> layers filled with the material's shade vars (fallback hex
+      included so the file previews standalone). Layers may overlap; the
+      second <g> paints on top.
+    - Artifact sigils + erase: fill="currentColor" so CSS drives their color
+      (the slot's brew mix, the erase tile's muted/text).
+    - Render brush icons at 28px (4×) in the grid, sigils at 21px (3×) in
       the slots — integer scales keep them crisp.
     - All are decorative: mark aria-hidden="true" when inlined; the button/
       link carries the accessible name.
+
+  Wuxing order (generating cycle — also the grid's first five tiles):
+    wood → fire → earth → metal → water.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
 
-  <!-- ======================= ELEMENT BRUSHES (two-tone) ==================== -->
+  <!-- ==================== BASE BRUSHES (the five phases) =================== -->
 
-  <!-- sand: a settled pile, checker-dithered -->
-  <symbol id="el-sand" viewBox="0 0 7 7" shape-rendering="crispEdges">
-    <g fill="var(--px-sand-1, #dcae54)">
+  <!-- wood: a bare branch — trunk, two limbs, root flare -->
+  <symbol id="el-wood" viewBox="0 0 7 7" shape-rendering="crispEdges">
+    <g fill="var(--px-wood-1, #96a83c)">
+      <rect x="3" y="0" width="1" height="7"/>
+    </g>
+    <g fill="var(--px-wood-2, #6f7f2a)">
+      <rect x="1" y="1" width="1" height="1"/><rect x="2" y="2" width="1" height="1"/>
+      <rect x="5" y="2" width="1" height="1"/><rect x="4" y="3" width="1" height="1"/>
+      <rect x="2" y="6" width="1" height="1"/><rect x="4" y="6" width="1" height="1"/>
+    </g>
+  </symbol>
+
+  <!-- fire: flame body with a hot core (v1 silhouette, dropped 1px so it
+       sits on the tile floor like the other materials) -->
+  <symbol id="el-fire" viewBox="0 0 7 7" shape-rendering="crispEdges">
+    <g fill="var(--px-fire-2, #ff7a33)">
+      <rect x="3" y="1" width="1" height="1"/>
+      <rect x="3" y="2" width="2" height="1"/>
+      <rect x="2" y="3" width="3" height="1"/>
+      <rect x="1" y="4" width="2" height="1"/><rect x="4" y="4" width="2" height="1"/>
+      <rect x="1" y="5" width="1" height="1"/><rect x="5" y="5" width="1" height="1"/>
+      <rect x="2" y="6" width="1" height="1"/><rect x="4" y="6" width="1" height="1"/>
+    </g>
+    <g fill="var(--px-fire-1, #ffc23d)">
+      <rect x="3" y="4" width="1" height="1"/>
+      <rect x="2" y="5" width="3" height="1"/>
+      <rect x="3" y="6" width="1" height="1"/>
+    </g>
+  </symbol>
+
+  <!-- earth: a settled pile, checker-dithered (v1 sand, renamed) -->
+  <symbol id="el-earth" viewBox="0 0 7 7" shape-rendering="crispEdges">
+    <g fill="var(--px-earth-1, #dcae54)">
       <rect x="3" y="3" width="1" height="1"/>
       <rect x="2" y="4" width="1" height="1"/><rect x="4" y="4" width="1" height="1"/>
       <rect x="1" y="5" width="1" height="1"/><rect x="3" y="5" width="1" height="1"/><rect x="5" y="5" width="1" height="1"/>
       <rect x="0" y="6" width="1" height="1"/><rect x="2" y="6" width="1" height="1"/><rect x="4" y="6" width="1" height="1"/><rect x="6" y="6" width="1" height="1"/>
     </g>
-    <g fill="var(--px-sand-2, #b98e3e)">
+    <g fill="var(--px-earth-2, #b98e3e)">
       <rect x="3" y="4" width="1" height="1"/>
       <rect x="2" y="5" width="1" height="1"/><rect x="4" y="5" width="1" height="1"/>
       <rect x="1" y="6" width="1" height="1"/><rect x="3" y="6" width="1" height="1"/><rect x="5" y="6" width="1" height="1"/>
     </g>
   </symbol>
 
-  <!-- water: a pool with a light wave crest -->
+  <!-- metal: a raw bar with a specular top edge (unchanged from v1) -->
+  <symbol id="el-metal" viewBox="0 0 7 7" shape-rendering="crispEdges">
+    <g fill="var(--px-metal-1, #97a3b2)">
+      <rect x="0" y="3" width="7" height="2"/>
+    </g>
+    <g fill="var(--px-metal-2, #6d7987)">
+      <rect x="0" y="2" width="7" height="1"/>
+    </g>
+  </symbol>
+
+  <!-- water: a pool with a light wave crest (unchanged from v1) -->
   <symbol id="el-water" viewBox="0 0 7 7" shape-rendering="crispEdges">
     <g fill="var(--px-water-1, #2f7fd6)">
       <rect x="0" y="4" width="2" height="1"/><rect x="3" y="4" width="2" height="1"/><rect x="6" y="4" width="1" height="1"/>
@@ -50,76 +97,147 @@
     </g>
   </symbol>
 
-  <!-- fire: flame body with a hot core -->
-  <symbol id="el-fire" viewBox="0 0 7 7" shape-rendering="crispEdges">
-    <g fill="var(--px-fire-2, #ff7a33)">
+  <!-- ================ DERIVED BRUSHES (unlocked by discovery) ============== -->
+
+  <!-- ash: a sparse low drift with flecks still in the air -->
+  <symbol id="el-ash" viewBox="0 0 7 7" shape-rendering="crispEdges">
+    <g fill="var(--px-ash-1, #98928a)">
+      <rect x="2" y="5" width="1" height="1"/><rect x="4" y="5" width="1" height="1"/>
+      <rect x="1" y="6" width="1" height="1"/><rect x="3" y="6" width="1" height="1"/><rect x="5" y="6" width="1" height="1"/>
+    </g>
+    <g fill="var(--px-ash-2, #75706a)">
+      <rect x="2" y="2" width="1" height="1"/><rect x="4" y="3" width="1" height="1"/>
+      <rect x="3" y="5" width="1" height="1"/>
+      <rect x="2" y="6" width="1" height="1"/><rect x="4" y="6" width="1" height="1"/>
+    </g>
+  </symbol>
+
+  <!-- pulp: a soggy clump, dripping -->
+  <symbol id="el-pulp" viewBox="0 0 7 7" shape-rendering="crispEdges">
+    <g fill="var(--px-pulp-1, #b8ab7e)">
+      <rect x="2" y="3" width="3" height="1"/>
+      <rect x="1" y="4" width="5" height="1"/>
+      <rect x="1" y="5" width="5" height="1"/>
+    </g>
+    <g fill="var(--px-pulp-2, #94885f)">
+      <rect x="3" y="2" width="1" height="1"/>
+      <rect x="3" y="4" width="1" height="1"/>
+      <rect x="2" y="6" width="1" height="1"/><rect x="4" y="6" width="1" height="1"/>
+    </g>
+  </symbol>
+
+  <!-- mud: a wide wet mound (full-width base — heavier than the earth pile) -->
+  <symbol id="el-mud" viewBox="0 0 7 7" shape-rendering="crispEdges">
+    <g fill="var(--px-mud-1, #7a5c39)">
+      <rect x="2" y="4" width="3" height="1"/>
+      <rect x="1" y="5" width="5" height="1"/>
+      <rect x="0" y="6" width="7" height="1"/>
+    </g>
+    <g fill="var(--px-mud-2, #5d4529)">
+      <rect x="3" y="3" width="1" height="1"/>
+      <rect x="2" y="5" width="1" height="1"/>
+      <rect x="4" y="6" width="1" height="1"/>
+    </g>
+  </symbol>
+
+  <!-- brick: running-bond masonry — terracotta courses, dark mortar seams -->
+  <symbol id="el-brick" viewBox="0 0 7 7" shape-rendering="crispEdges">
+    <g fill="var(--px-brick-1, #c96f45)">
+      <rect x="0" y="2" width="7" height="5"/>
+    </g>
+    <g fill="var(--px-brick-2, #a1522f)">
+      <rect x="3" y="2" width="1" height="2"/>
+      <rect x="0" y="4" width="7" height="1"/>
+      <rect x="1" y="5" width="1" height="2"/><rect x="5" y="5" width="1" height="2"/>
+    </g>
+  </symbol>
+
+  <!-- glass: the diamond, now two-tone with an inner glint -->
+  <symbol id="el-glass" viewBox="0 0 7 7" shape-rendering="crispEdges">
+    <g fill="var(--px-glass-1, #aee3ea)">
       <rect x="3" y="0" width="1" height="1"/>
-      <rect x="3" y="1" width="2" height="1"/>
-      <rect x="2" y="2" width="3" height="1"/>
-      <rect x="1" y="3" width="2" height="1"/><rect x="4" y="3" width="2" height="1"/>
+      <rect x="2" y="1" width="1" height="1"/><rect x="4" y="1" width="1" height="1"/>
+      <rect x="1" y="2" width="1" height="1"/><rect x="5" y="2" width="1" height="1"/>
+      <rect x="0" y="3" width="1" height="1"/><rect x="6" y="3" width="1" height="1"/>
       <rect x="1" y="4" width="1" height="1"/><rect x="5" y="4" width="1" height="1"/>
       <rect x="2" y="5" width="1" height="1"/><rect x="4" y="5" width="1" height="1"/>
+      <rect x="3" y="6" width="1" height="1"/>
     </g>
-    <g fill="var(--px-fire-1, #ffc23d)">
-      <rect x="3" y="3" width="1" height="1"/>
-      <rect x="2" y="4" width="3" height="1"/>
-      <rect x="3" y="5" width="1" height="1"/>
-    </g>
-  </symbol>
-
-  <!-- seed: a small kernel with a highlight -->
-  <symbol id="el-seed" viewBox="0 0 7 7" shape-rendering="crispEdges">
-    <g fill="var(--px-seed-1, #96a83c)">
-      <rect x="2" y="3" width="3" height="1"/>
-      <rect x="3" y="4" width="1" height="1"/>
-    </g>
-    <g fill="var(--px-seed-2, #6f7f2a)">
-      <rect x="3" y="2" width="1" height="1"/>
+    <g fill="var(--px-glass-2, #7fc4cf)">
+      <rect x="3" y="2" width="1" height="1"/><rect x="2" y="3" width="1" height="1"/>
     </g>
   </symbol>
 
-  <!-- metal: a bar with a specular top edge -->
-  <symbol id="el-metal" viewBox="0 0 7 7" shape-rendering="crispEdges">
-    <g fill="var(--px-metal-1, #97a3b2)">
-      <rect x="0" y="3" width="7" height="2"/>
-    </g>
-    <g fill="var(--px-metal-2, #6d7987)">
-      <rect x="0" y="2" width="7" height="1"/>
-    </g>
-  </symbol>
-
-  <!-- oil: a heavy droplet with a dark sheen -->
-  <symbol id="el-oil" viewBox="0 0 7 7" shape-rendering="crispEdges">
-    <g fill="var(--px-oil-1, #664733)">
-      <rect x="3" y="1" width="1" height="1"/>
-      <rect x="3" y="2" width="2" height="1"/>
-      <rect x="1" y="3" width="1" height="1"/><rect x="3" y="3" width="3" height="1"/>
+  <!-- molten metal: a glowing pool with white-hot glints and a spark -->
+  <symbol id="el-molten" viewBox="0 0 7 7" shape-rendering="crispEdges">
+    <g fill="var(--px-molten-1, #f0603c)">
       <rect x="1" y="4" width="5" height="1"/>
-      <rect x="2" y="5" width="3" height="1"/>
+      <rect x="0" y="5" width="7" height="1"/>
+      <rect x="0" y="6" width="7" height="1"/>
     </g>
-    <g fill="var(--px-oil-2, #4e3728)">
-      <rect x="2" y="2" width="1" height="1"/>
-      <rect x="2" y="3" width="1" height="1"/>
+    <g fill="var(--px-molten-2, #ffcf6e)">
+      <rect x="3" y="2" width="1" height="1"/><rect x="5" y="3" width="1" height="1"/>
+      <rect x="1" y="5" width="1" height="1"/><rect x="2" y="5" width="1" height="1"/>
+      <rect x="4" y="6" width="1" height="1"/>
     </g>
   </symbol>
 
-  <!-- stone: a boulder with a lit shoulder -->
-  <symbol id="el-stone" viewBox="0 0 7 7" shape-rendering="crispEdges">
-    <g fill="var(--px-stone-1, #49525f)">
-      <rect x="4" y="2" width="1" height="1"/>
-      <rect x="2" y="3" width="4" height="1"/>
-      <rect x="0" y="4" width="1" height="1"/><rect x="2" y="4" width="5" height="1"/>
+  <!-- forged metal: an ingot — bright top face, dark blued body
+       (trapezoid, bottom-weighted; distinct from the raw metal bar) -->
+  <symbol id="el-forged" viewBox="0 0 7 7" shape-rendering="crispEdges">
+    <g fill="var(--px-forged-1, #5e6f8d)">
+      <rect x="1" y="4" width="5" height="1"/>
       <rect x="0" y="5" width="7" height="1"/>
-      <rect x="1" y="6" width="5" height="1"/>
+      <rect x="0" y="6" width="7" height="1"/>
     </g>
-    <g fill="var(--px-stone-2, #333b46)">
-      <rect x="2" y="2" width="2" height="1"/>
-      <rect x="1" y="3" width="1" height="1"/>
+    <g fill="var(--px-forged-2, #93a9cc)">
+      <rect x="2" y="3" width="3" height="1"/>
       <rect x="1" y="4" width="1" height="1"/>
     </g>
   </symbol>
 
-  <!-- erase: a pixel X, rides currentColor -->
+  <!-- steam: two rising waves — brighter above (fading as it climbs) -->
+  <symbol id="el-steam" viewBox="0 0 7 7" shape-rendering="crispEdges">
+    <g fill="var(--px-steam-1, #a7b8c9)">
+      <rect x="1" y="1" width="1" height="1"/><rect x="3" y="1" width="1" height="1"/><rect x="5" y="1" width="1" height="1"/>
+      <rect x="0" y="2" width="1" height="1"/><rect x="2" y="2" width="1" height="1"/><rect x="4" y="2" width="1" height="1"/><rect x="6" y="2" width="1" height="1"/>
+    </g>
+    <g fill="var(--px-steam-2, #8397ab)">
+      <rect x="1" y="4" width="1" height="1"/><rect x="3" y="4" width="1" height="1"/><rect x="5" y="4" width="1" height="1"/>
+      <rect x="0" y="5" width="1" height="1"/><rect x="2" y="5" width="1" height="1"/><rect x="4" y="5" width="1" height="1"/><rect x="6" y="5" width="1" height="1"/>
+    </g>
+  </symbol>
+
+  <!-- ink: a falling drop over a spreading stain -->
+  <symbol id="el-ink" viewBox="0 0 7 7" shape-rendering="crispEdges">
+    <g fill="var(--px-ink-1, #46549e)">
+      <rect x="3" y="1" width="1" height="1"/>
+      <rect x="2" y="2" width="3" height="1"/>
+      <rect x="2" y="3" width="3" height="1"/>
+      <rect x="3" y="4" width="1" height="1"/>
+      <rect x="1" y="6" width="5" height="1"/>
+    </g>
+    <g fill="var(--px-ink-2, #2e3870)">
+      <rect x="3" y="2" width="1" height="1"/>
+      <rect x="2" y="6" width="1" height="1"/><rect x="4" y="6" width="1" height="1"/>
+    </g>
+  </symbol>
+
+  <!-- paper: a sheet with a folded corner and two ruled lines -->
+  <symbol id="el-paper" viewBox="0 0 7 7" shape-rendering="crispEdges">
+    <g fill="var(--px-paper-1, #ecdfbc)">
+      <rect x="1" y="0" width="3" height="1"/>
+      <rect x="1" y="1" width="4" height="1"/>
+      <rect x="1" y="2" width="5" height="5"/>
+    </g>
+    <g fill="var(--px-paper-2, #cbbd93)">
+      <rect x="4" y="1" width="1" height="1"/>
+      <rect x="2" y="3" width="3" height="1"/>
+      <rect x="2" y="5" width="3" height="1"/>
+    </g>
+  </symbol>
+
+  <!-- erase: a pixel X, rides currentColor (unchanged from v1) -->
   <symbol id="el-erase" viewBox="0 0 7 7" shape-rendering="crispEdges">
     <g fill="currentColor">
       <rect x="1" y="1" width="1" height="1"/><rect x="5" y="1" width="1" height="1"/>
@@ -130,50 +248,65 @@
     </g>
   </symbol>
 
-  <!-- ================= PRODUCT SIGILS (slot runes, currentColor) =========== -->
+  <!-- ================ ARTIFACT SIGILS (slot runes, currentColor) =========== -->
 
-  <!-- glass: a diamond outline (a clear stone) -->
-  <symbol id="sig-glass" viewBox="0 0 7 7" shape-rendering="crispEdges">
+  <!-- house (home): peaked roof over hollow walls; the floor gap is the door -->
+  <symbol id="sig-house" viewBox="0 0 7 7" shape-rendering="crispEdges">
     <g fill="currentColor">
       <rect x="3" y="0" width="1" height="1"/>
       <rect x="2" y="1" width="1" height="1"/><rect x="4" y="1" width="1" height="1"/>
       <rect x="1" y="2" width="1" height="1"/><rect x="5" y="2" width="1" height="1"/>
-      <rect x="0" y="3" width="1" height="1"/><rect x="6" y="3" width="1" height="1"/>
-      <rect x="1" y="4" width="1" height="1"/><rect x="5" y="4" width="1" height="1"/>
-      <rect x="2" y="5" width="1" height="1"/><rect x="4" y="5" width="1" height="1"/>
-      <rect x="3" y="6" width="1" height="1"/>
+      <rect x="0" y="3" width="1" height="4"/><rect x="6" y="3" width="1" height="4"/>
+      <rect x="1" y="6" width="2" height="1"/><rect x="4" y="6" width="2" height="1"/>
     </g>
   </symbol>
 
-  <!-- steam: two rising waves (vapor) -->
-  <symbol id="sig-steam" viewBox="0 0 7 7" shape-rendering="crispEdges">
-    <g fill="currentColor">
-      <rect x="1" y="1" width="1" height="1"/><rect x="3" y="1" width="1" height="1"/><rect x="5" y="1" width="1" height="1"/>
-      <rect x="0" y="2" width="1" height="1"/><rect x="2" y="2" width="1" height="1"/><rect x="4" y="2" width="1" height="1"/><rect x="6" y="2" width="1" height="1"/>
-      <rect x="1" y="4" width="1" height="1"/><rect x="3" y="4" width="1" height="1"/><rect x="5" y="4" width="1" height="1"/>
-      <rect x="0" y="5" width="1" height="1"/><rect x="2" y="5" width="1" height="1"/><rect x="4" y="5" width="1" height="1"/><rect x="6" y="5" width="1" height="1"/>
-    </g>
-  </symbol>
-
-  <!-- plant: a sprout — stem and two leaves -->
-  <symbol id="sig-plant" viewBox="0 0 7 7" shape-rendering="crispEdges">
-    <g fill="currentColor">
-      <rect x="1" y="1" width="1" height="1"/><rect x="5" y="1" width="1" height="1"/>
-      <rect x="2" y="2" width="3" height="1"/>
-      <rect x="3" y="3" width="1" height="4"/>
-    </g>
-  </symbol>
-
-  <!-- rust: a pitted, broken ring (corroded circle) -->
-  <symbol id="sig-rust" viewBox="0 0 7 7" shape-rendering="crispEdges">
+  <!-- scroll (blog): rolled ends, marked twice with ink -->
+  <symbol id="sig-scroll" viewBox="0 0 7 7" shape-rendering="crispEdges">
     <g fill="currentColor">
       <rect x="2" y="0" width="3" height="1"/>
-      <rect x="1" y="1" width="1" height="1"/>
-      <rect x="0" y="2" width="1" height="1"/><rect x="6" y="2" width="1" height="1"/>
-      <rect x="0" y="3" width="1" height="1"/><rect x="4" y="3" width="1" height="1"/><rect x="6" y="3" width="1" height="1"/>
-      <rect x="6" y="4" width="1" height="1"/>
+      <rect x="1" y="1" width="1" height="5"/><rect x="5" y="1" width="1" height="5"/>
+      <rect x="2" y="6" width="3" height="1"/>
+      <rect x="3" y="2" width="1" height="1"/><rect x="3" y="4" width="1" height="1"/>
+    </g>
+  </symbol>
+
+  <!-- automaton (projects): a steam piston — vapor above (steam's own dither
+       cadence), head seated flush in the bore, rod driving out the open end -->
+  <symbol id="sig-automaton" viewBox="0 0 7 7" shape-rendering="crispEdges">
+    <g fill="currentColor">
+      <rect x="1" y="0" width="1" height="1"/><rect x="3" y="0" width="1" height="1"/><rect x="5" y="0" width="1" height="1"/>
+      <rect x="0" y="1" width="1" height="4"/><rect x="6" y="1" width="1" height="4"/>
+      <rect x="1" y="3" width="5" height="1"/>
+      <rect x="3" y="4" width="1" height="3"/>
+    </g>
+  </symbol>
+
+  <!-- mirror (about): an unbroken ring with a corner glint -->
+  <symbol id="sig-mirror" viewBox="0 0 7 7" shape-rendering="crispEdges">
+    <g fill="currentColor">
+      <rect x="2" y="0" width="3" height="1"/>
+      <rect x="1" y="1" width="1" height="1"/><rect x="5" y="1" width="1" height="1"/>
+      <rect x="0" y="2" width="1" height="3"/><rect x="6" y="2" width="1" height="3"/>
       <rect x="1" y="5" width="1" height="1"/><rect x="5" y="5" width="1" height="1"/>
-      <rect x="2" y="6" width="1" height="1"/><rect x="4" y="6" width="1" height="1"/>
+      <rect x="2" y="6" width="3" height="1"/>
+      <rect x="3" y="2" width="1" height="1"/><rect x="2" y="3" width="1" height="1"/>
+    </g>
+  </symbol>
+
+  <!-- ==================== UI GLYPHS (currentColor) ========================= -->
+
+  <!-- unlock: an opened padlock — shackle swung left, its free end hanging
+       clear of the body; hollow 1×2 keyhole. Used by the artifact-discovery
+       popup (.alch__pop-glyph, 28px = 4×). -->
+  <symbol id="ui-unlock" viewBox="0 0 7 7" shape-rendering="crispEdges">
+    <g fill="currentColor">
+      <rect x="1" y="0" width="3" height="1"/>
+      <rect x="1" y="1" width="1" height="1"/><rect x="3" y="1" width="1" height="1"/>
+      <rect x="1" y="2" width="1" height="1"/>
+      <rect x="1" y="3" width="5" height="1"/>
+      <rect x="1" y="4" width="2" height="2"/><rect x="4" y="4" width="2" height="2"/>
+      <rect x="1" y="6" width="5" height="1"/>
     </g>
   </symbol>
 
