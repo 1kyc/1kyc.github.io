@@ -460,11 +460,11 @@ function createSim(hooks: SimHooks): Sim {
 				return;
 			}
 		}
-		// gravity (every 2nd frame — half metal's speed): falls into air only;
-		// lockstep means stacked cells chain into cells vacated this same
-		// frame exactly like metal's scan/mask handling, so the piece
-		// descends whole and never compacts into itself
-		if (frame % 2 === 0 && y < H - 1 && grid[i + W] === EMPTY) swap(i, i + W);
+		// gravity (every frame, like metal): falls into air only; lockstep
+		// means stacked cells chain into cells vacated this same frame
+		// exactly like metal's scan/mask handling, so the piece descends
+		// whole and never compacts into itself
+		if (y < H - 1 && grid[i + W] === EMPTY) swap(i, i + W);
 	};
 
 	const stepFire = (i: number, x: number, y: number): void => {
