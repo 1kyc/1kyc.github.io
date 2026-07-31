@@ -63,13 +63,13 @@ const MANIPULATOR = {
 };
 // alchemy (falling-sand, v2 "wuxing"): each destination's key is the ARTIFACT
 // the visitor assembles on the canvas (a hollow brick build → house,
-// ink-stained paper → scroll, forged metal + steam → automaton,
+// ink-stained paper → scroll, forged metal + steam → piston,
 // glass over forged metal → mirror). The artifact name IS the solution key —
 // the sim reproduces it byte-for-byte when its pattern detector fires.
 const ALCHEMY = {
 	home: 'house',
 	blog: 'scroll',
-	projects: 'automaton',
+	projects: 'piston',
 	about: 'mirror',
 };
 const MAZE_KEYS = {

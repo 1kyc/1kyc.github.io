@@ -1049,10 +1049,10 @@ body {
 .orbit__doors a:focus-visible::before { color: var(--accent); }
 
 /* -----------------------------------------------------------------------------
-   7c. ALCHEMY — the falling-sand cellular-automaton maze (v2 "wuxing").
+   7c. ALCHEMY — the falling-sand cellular-automata maze (v2 "wuxing").
    A pixel-physics sandbox: paint the five phases (wood / fire / earth / metal
    / water), let them react, and assemble the four ARTIFACTS (house / scroll /
-   automaton / mirror) that open the doors.
+   piston / mirror) that open the doors.
 
    Class map (what the Preact component applies):
      .alch              wrapper column (stage + tray + actions + slots)
@@ -1077,14 +1077,14 @@ body {
                         unlocked brushes and revealed slots all survive
      .alch__slots       the four artifact slots
      .alch__slot        one slot (a <div> while sealed, an <a> once revealed)
-       .alch__slot--house / --scroll / --automaton / --mirror    identity
+       .alch__slot--house / --scroll / --piston / --mirror    identity
        .alch__slot--revealed                                     solved → link
      .alch__sigil       the 7×7 pixel rune SVG inside a slot (21px = 3×)
      .alch__slot-name   destination label line (empty while sealed; CSS paints
                         "···" so reveal causes no layout shift)
      .alch__pop         artifact-discovery popup over the canvas (aria-hidden;
                         mounted inside .alch__stage on discovery, ~2.8s)
-       .alch__pop--house / --scroll / --automaton / --mirror     identity
+       .alch__pop--house / --scroll / --piston / --mirror     identity
      .alch__pop-glyph   the ui-unlock padlock (28px = 4×)
      .alch__pop-row     sigil + name line
      .alch__pop-sigil   the artifact rune (21px = 3×)
@@ -1098,7 +1098,7 @@ body {
          ink molten forged steam glass · erase
        The first five are the wuxing phases in recitation order (金木水火土)
        and are usable from the start; the ten derived tiles (seated in
-       goal-recipe order: house → scroll → automaton → mirror) render as
+       goal-recipe order: house → scroll → piston → mirror) render as
        .alch__el--locked placeholders and flip in place to live buttons
        (+ --new) when their material is first created on the canvas. Erase
        is always the last tile.
@@ -1393,8 +1393,8 @@ body {
 }
 
 /* -----------------------------------------------------------------------------
-   ARTIFACT SLOTS — the four doors: house (home), scroll (blog), automaton
-   (projects), mirror (about). Sealed: a dashed tile with a dim pixel rune
+   ARTIFACT SLOTS — the four doors, one per artifact: house, scroll, piston,
+   mirror. Sealed: a dashed tile with a dim pixel rune
    (the ARTIFACT's sigil — a goal hint, never the destination name). The
    per-slot --brew (0..1, set inline by JS) warms the rune from --muted
    toward the artifact color as its detector accumulates, so progress reads
@@ -1439,7 +1439,7 @@ body {
    the matter that makes it (the single source for the artifact color table) */
 .alch__slot--house,     .alch__pop--house     { --slot-c: var(--px-brick-1); }  /* fired masonry   */
 .alch__slot--scroll,    .alch__pop--scroll    { --slot-c: var(--px-paper-1); }  /* dried page      */
-.alch__slot--automaton, .alch__pop--automaton { --slot-c: var(--px-forged-2); } /* burnished steel */
+.alch__slot--piston, .alch__pop--piston { --slot-c: var(--px-forged-2); } /* burnished steel */
 .alch__slot--mirror,    .alch__pop--mirror    { --slot-c: var(--px-glass-1); }  /* silvered glass  */
 
 .alch__sigil {
@@ -1516,9 +1516,9 @@ body {
 	to   { clip-path: inset(0 0 0 0); }
 }
 
-/* automaton — CLANK: the gear drops into place in three mechanical steps
+/* piston — CLANK: the piston head drops into place in three mechanical steps
    (steps() timing = pixel-machine cadence, not an organic ease) */
-.alch__slot--automaton.alch__slot--revealed .alch__sigil {
+.alch__slot--piston.alch__slot--revealed .alch__sigil {
 	animation: alch-clank 420ms steps(3, end);
 }
 @keyframes alch-clank {

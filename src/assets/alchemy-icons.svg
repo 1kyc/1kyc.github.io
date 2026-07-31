@@ -1,7 +1,7 @@
 <!--
   alchemy-icons.svg — 7×7 pixel-art icons for the "alchemy" falling-sand maze,
   v2 (wuxing). 20 symbols: 5 base brushes + 10 derived brushes + erase +
-  4 artifact sigils (house / scroll / automaton / mirror).
+  4 artifact sigils (house / scroll / piston / mirror).
 
   HAND-OFF: a reference sprite. The developer should LIFT each <symbol>'s
   contents as inline JSX SVG in the Preact component (the site inlines all
@@ -271,9 +271,9 @@
     </g>
   </symbol>
 
-  <!-- automaton (projects): a steam piston — vapor above (steam's own dither
+  <!-- piston (projects): a steam piston — vapor above (steam's own dither
        cadence), head seated flush in the bore, rod driving out the open end -->
-  <symbol id="sig-automaton" viewBox="0 0 7 7" shape-rendering="crispEdges">
+  <symbol id="sig-piston" viewBox="0 0 7 7" shape-rendering="crispEdges">
     <g fill="currentColor">
       <rect x="1" y="0" width="1" height="1"/><rect x="3" y="0" width="1" height="1"/><rect x="5" y="0" width="1" height="1"/>
       <rect x="0" y="1" width="1" height="4"/><rect x="6" y="1" width="1" height="4"/>

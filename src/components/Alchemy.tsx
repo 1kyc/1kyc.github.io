@@ -7,14 +7,14 @@ import { decodeLabel, decodePath } from '../lib/crypto';
 const MAZE_ID = 'alchemy';
 
 // ---------------------------------------------------------------------------
-// World — a 128×96 cell falling-sand automaton on a 4:3 canvas (CSS scales it
+// World — a 128×96 cell falling-sand cellular automata grid on a 4:3 canvas
 // to the 512px stage at an integer 4×). The sim ticks at ~30fps; rendering
 // rides requestAnimationFrame so the brush cursor stays smooth.
 //
 // v2 "wuxing": the palette is the five phases (wood / fire / earth / metal /
 // water); everything else is DERIVED by reaction and unlocks as a brush when
 // first created. The four doors are ARTIFACT detectors (house / scroll /
-// automaton / mirror), not material counters.
+// piston / mirror), not material counters.
 // ---------------------------------------------------------------------------
 const W = 128;
 const H = 96;
@@ -140,7 +140,7 @@ HEAT_FLECK[PULP] = 1;
 // Brushes. Grid order is FIXED (matches the CSS class-map contract): the five
 // phases in wuxing recitation order (金木水火土 — metal, wood, water, fire,
 // earth), then the ten derived seats sorted by goal-recipe sequence
-// house→scroll→automaton→mirror so unlocks tend to march left-to-right, then
+// house→scroll→piston→mirror so unlocks tend to march left-to-right, then
 // erase. Derived materials start LOCKED and flip to live buttons in place the
 // first time the sim creates them.
 // ---------------------------------------------------------------------------
@@ -164,7 +164,7 @@ const BRUSHES: readonly BrushDef[] = [
 	{ id: 'paper', mat: PAPER, base: false },
 	{ id: 'ash', mat: ASH, base: false },
 	{ id: 'ink', mat: INK, base: false },
-	// automaton
+	// piston
 	{ id: 'molten', mat: MOLTEN, base: false },
 	{ id: 'forged', mat: FORGED, base: false },
 	{ id: 'steam', mat: STEAM, base: false },
@@ -212,23 +212,23 @@ const burnLife = (): number => 120 + ((rand() * 80) | 0);
 // ---------------------------------------------------------------------------
 const A_HOUSE = 0;
 const A_SCROLL = 1;
-const A_AUTOMATON = 2;
+const A_PISTON = 2;
 const A_MIRROR = 3;
-const ART_KEYS: readonly string[] = ['house', 'scroll', 'automaton', 'mirror'];
+const ART_KEYS: readonly string[] = ['house', 'scroll', 'piston', 'mirror'];
 
 /** scroll: cumulative ink-stained paper cells */
 const SCROLL_NEED = 30;
 /** scroll brew hint: paper on canvas that counts as "the page exists" */
 const SCROLL_PAPER = 12;
-/** house/automaton/mirror: structural scans every 15 frames (~0.5s) */
+/** house/piston/mirror: structural scans every 15 frames (~0.5s) */
 const SLOW_EVERY = 15;
 /** house: min enclosed hollow cells + min brick cells lining/joined to it */
 const HOUSE_CAVITY = 6;
 const HOUSE_BRICK = 10;
 const HOUSE_NEED = 3; // ≈ 1.5s standing — rides out mid-collapse transients
-/** automaton: connected forged-metal component size + held steam checks */
-const AUTO_SIZE = 30;
-const AUTO_NEED = 7; // ≈ 3.5s of steam at the machine
+/** piston: connected forged-metal component size + held steam checks */
+const PISTON_SIZE = 30;
+const PISTON_NEED = 7; // ≈ 3.5s of steam at the machine
 /** mirror: horizontal forged run with glass directly above + held checks */
 const MIRROR_RUN = 8;
 const MIRROR_NEED = 4; // ≈ 2s aligned
@@ -279,11 +279,11 @@ function createSim(hooks: SimHooks): Sim {
 	const reported = new Float64Array(ART_KEYS.length);
 	let stained = 0; // monotonic: paper cells ever inked
 	let houseHold = 0;
-	let autoHold = 0;
+	let pistonHold = 0;
 	let mirrorHold = 0;
 	// unlock state (survives clear)
 	const unlocked = new Uint8Array(NMAT);
-	// automaton scratch (allocated once; no per-frame allocations)
+	// piston scratch (allocated once; no per-frame allocations)
 	const visited = new Uint8Array(N);
 	const stack = new Int32Array(N);
 	let frame = 0;
@@ -847,11 +847,11 @@ function createSim(hooks: SimHooks): Sim {
 	};
 
 	/**
-	 * AUTOMATON: flood-fill connected forged-metal components (4-neighbour);
-	 * condition = a component of ≥ AUTO_SIZE cells with steam touching it.
+	 * PISTON: flood-fill connected forged-metal components (4-neighbour);
+	 * condition = a component of ≥ PISTON_SIZE cells with steam touching it.
 	 * Returns the largest component size for partial brew feedback.
 	 */
-	const scanAutomaton = (): { best: number; cond: boolean } => {
+	const scanPiston = (): { best: number; cond: boolean } => {
 		// forged metal has never existed — nothing to scan
 		if (!unlocked[FORGED]) return { best: 0, cond: false };
 		visited.fill(0);
@@ -882,7 +882,7 @@ function createSim(hooks: SimHooks): Sim {
 				}
 			}
 			if (size > best) best = size;
-			if (size >= AUTO_SIZE && steamNear) cond = true;
+			if (size >= PISTON_SIZE && steamNear) cond = true;
 		}
 		return { best, cond };
 	};
@@ -951,15 +951,15 @@ function createSim(hooks: SimHooks): Sim {
 				);
 			}
 		}
-		if (!discovered[A_AUTOMATON]) {
-			const { best, cond } = scanAutomaton();
-			if (cond) autoHold++;
-			else if (autoHold > 0) autoHold--;
-			if (autoHold >= AUTO_NEED) discover(A_AUTOMATON);
+		if (!discovered[A_PISTON]) {
+			const { best, cond } = scanPiston();
+			if (cond) pistonHold++;
+			else if (pistonHold > 0) pistonHold--;
+			if (pistonHold >= PISTON_NEED) discover(A_PISTON);
 			else
 				report(
-					A_AUTOMATON,
-					0.5 * Math.min(1, best / AUTO_SIZE) + 0.5 * (autoHold / AUTO_NEED),
+					A_PISTON,
+					0.5 * Math.min(1, best / PISTON_SIZE) + 0.5 * (pistonHold / PISTON_NEED),
 				);
 		}
 		if (!discovered[A_MIRROR]) {
@@ -1045,7 +1045,7 @@ function createSim(hooks: SimHooks): Sim {
 		aux.fill(0);
 		liveCells = 0;
 		houseHold = 0;
-		autoHold = 0;
+		pistonHold = 0;
 		mirrorHold = 0;
 	};
 
@@ -1301,9 +1301,9 @@ const ICONS: Record<string, readonly IconLayer[]> = {
 			px: [[2, 0, 3, 1], [1, 1, 1, 5], [5, 1, 1, 5], [2, 6, 3, 1], [3, 2], [3, 4]],
 		},
 	],
-	// automaton: a steam piston — vapor above (steam's own dither
+	// piston: a steam piston — vapor above (steam's own dither
 	// cadence), head seated flush in the bore, rod driving out the open end
-	'sig-automaton': [
+	'sig-piston': [
 		{
 			fill: 'currentColor',
 			px: [[1, 0], [3, 0], [5, 0], [0, 1, 1, 4], [6, 1, 1, 4], [1, 3, 5, 1], [3, 4, 1, 3]],
@@ -1357,7 +1357,7 @@ function Icon({ id, class: cls }: { id: string; class?: string }): JSX.Element {
 // Component
 // ---------------------------------------------------------------------------
 
-// Slot order IS the destinations table order (house, scroll, automaton,
+// Slot order IS the destinations table order (house, scroll, piston,
 // mirror).
 const DESTS = getDestinations(MAZE_ID);
 const SLOT_INDEX: Record<string, number> = Object.fromEntries(
