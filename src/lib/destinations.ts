@@ -1,9 +1,9 @@
 // destinations.ts — typed access to the generated per-maze cipher tables.
 //
 // One table per maze, produced by `npm run gen:dest` (scripts/gen-destinations.mjs).
-// Each deliberately contains no plaintext paths — only the solution key, a
-// display label, and the XOR cipher. Resolve a real path at runtime with
-// decodePath(cipher, key).
+// Each deliberately contains NO plaintext — only the solution key and two XOR
+// ciphers (path + display label, separate keystreams). Resolve at runtime with
+// decodePath(cipher, key) / decodeLabel(labelCipher, key).
 //
 // Adding a new maze: add its key map in the generator, regenerate, then import
 // the emitted JSON here and register it in TABLES.
@@ -11,20 +11,22 @@
 import type { MazeId } from './mazes';
 import wordsearch from './destinations.wordsearch.json';
 import manipulator from './destinations.manipulator.json';
+import alchemy from './destinations.alchemy.json';
 import backdoors from './destinations.backdoors.json';
 
 export interface Destination {
 	/** the maze's solution key for this destination; also the decryption key */
 	key: string;
-	/** human-facing label for the fallback list */
-	label: string;
 	/** hex-encoded XOR cipher of the real path */
 	cipher: string;
+	/** hex-encoded XOR cipher of the display label (separate keystream) */
+	labelCipher: string;
 }
 
 const TABLES: Record<MazeId, readonly Destination[]> = {
 	wordsearch: wordsearch satisfies readonly Destination[],
 	manipulator: manipulator satisfies readonly Destination[],
+	alchemy: alchemy satisfies readonly Destination[],
 	backdoors: backdoors satisfies readonly Destination[],
 };
 

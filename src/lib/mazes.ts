@@ -20,6 +20,7 @@ export interface MazeDef {
 export const MAZES: readonly MazeDef[] = [
 	{ id: 'wordsearch', label: 'word search', kind: 'real' },
 	{ id: 'manipulator', label: 'manipulator', kind: 'real' },
+	{ id: 'alchemy', label: 'alchemy', kind: 'real' },
 	{ id: 'backdoors', label: 'backdoors', kind: 'fallback' },
 ];
 
@@ -38,6 +39,7 @@ export const MAZE_LOADERS: Record<
 > = {
 	wordsearch: () => import('../components/WordSearch'),
 	manipulator: () => import('../components/Manipulator'),
+	alchemy: () => import('../components/Alchemy'),
 	backdoors: () => import('../components/Backdoors'),
 };
 

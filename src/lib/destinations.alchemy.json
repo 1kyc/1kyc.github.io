@@ -1,0 +1,22 @@
+[
+	{
+		"key": "house",
+		"cipher": "f98a7deb07",
+		"labelCipher": "ee147c47"
+	},
+	{
+		"key": "scroll",
+		"cipher": "ce08f1227b",
+		"labelCipher": "39f8c9c6"
+	},
+	{
+		"key": "piston",
+		"cipher": "5184ce5bcef226614f",
+		"labelCipher": "4a6effbb83eae1d9"
+	},
+	{
+		"key": "mirror",
+		"cipher": "2f74250e1608",
+		"labelCipher": "8745fe410e"
+	}
+]
