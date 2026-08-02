@@ -30,6 +30,19 @@ theme-toggle script (no framework island) in the shared `Layout.astro`.
 - Styling: `src/styles/maze.css` (imported only by the landing). Ambient moiré
   background lives in `.maze::after` (calm centre, intricate edges).
 
+## Licensing + privacy
+
+- **Dual-licensed:** `LICENSE` (MIT) covers the code; `LICENSE-CONTENT`
+  (CC BY 4.0) covers the posts in `src/content/blog/`; bundled third-party
+  assets keep their own (`CREDITS.md`, `licenses/`). The README's License table
+  is the summary; the footer links both. Adding a license = update all three.
+- **`src/pages/privacy.astro`** is prose ABOUT code, so it goes stale silently.
+  It carries a KEEP IN SYNC list naming the files whose behavior it describes —
+  honor it when touching comments, theme storage, search, or any new third
+  party. No consent banner: nothing stores on the device pre-sign-in (ePrivacy
+  turns on device storage, not on IP transmission), but the transparency notice
+  is required either way.
+
 ## Workflow rules
 
 - `main` is protected — never push to it directly. Work on a `feat/…`, `fix/…`,

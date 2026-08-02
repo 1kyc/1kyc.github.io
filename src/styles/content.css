@@ -1247,6 +1247,12 @@ footer {
 .footer-legal {
 	margin: 0;
 }
+/* Each clause is one unit: on a narrow screen the line breaks at a "·", never
+   through a license name ("CC BY / 4.0"). The separators sit OUTSIDE the spans,
+   so they stay the only legal break points. */
+.footer-legal span {
+	white-space: nowrap;
+}
 .footer-links {
 	display: flex;
 	flex-wrap: wrap;

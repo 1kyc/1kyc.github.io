@@ -10,7 +10,7 @@ import '@fontsource-variable/noto-sans/index.css';
 import CjkFonts from '../components/CjkFonts.astro';
 import KatexStyles from '../components/KatexStyles.astro';
 
-import { AUTHOR, LICENSE_URL, REPO_URL } from '../lib/site';
+import { AUTHOR, CODE_LICENSE_URL, CONTENT_LICENSE_URL, REPO_URL } from '../lib/site';
 
 // Stamped at BUILD time, so the footer's year advances with each deploy without
 // shipping a line of JS to compute it.
@@ -104,8 +104,13 @@ const isActive = (href: string) =>
 		    (section 3), so a second one here would inherit the top bar's rule and
 		    padding. */}
 		<footer>
+			{/* Both licenses, named rather than merged into a vague "some rights
+			    reserved": the split is the useful part, and a reader arrives here
+			    holding either a post or the source. */}
 			<p class="footer-legal">
-				© {year} {AUTHOR} · <a href={LICENSE_URL}>MIT</a>
+				<span>© {year} {AUTHOR}</span> ·
+				<span>code <a href={CODE_LICENSE_URL}>MIT</a></span> ·
+				<span>posts <a href={CONTENT_LICENSE_URL}>CC BY 4.0</a></span>
 			</p>
 			<div class="footer-links">
 				<a href="/rss.xml">RSS</a>

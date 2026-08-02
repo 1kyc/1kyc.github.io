@@ -28,6 +28,19 @@ the site and publishes it to GitHub Pages.
 > One-time setup: in the repo's **Settings → Pages**, set **Source** to
 > **GitHub Actions**.
 
+## License
+
+This repo is dual-licensed, because code and prose want different terms:
+
+| What                                                 | License                                            |
+| :--------------------------------------------------- | :------------------------------------------------- |
+| Source code — everything that builds the site        | [MIT](LICENSE)                                     |
+| Written content — the posts in `src/content/blog/`   | [CC BY 4.0](LICENSE-CONTENT)                       |
+| Bundled third-party assets (3D models, fonts, KaTeX) | their own — see [CREDITS.md](CREDITS.md), `licenses/` |
+
+So: take the code and do as you like with it, and republish, translate, or
+build on the posts as long as you credit them and link the license.
+
 ## Credits
 
 Third-party 3D models (Canadarm2, ISS, Mobile Base System) and their licenses
