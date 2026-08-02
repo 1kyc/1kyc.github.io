@@ -24,6 +24,7 @@
      body                     page base: bg, ink, serif, min-height, reset
      nav                      the Layout top nav (mono, quiet; current = accent + underline)
        nav a[aria-current]      the active page link (dev adds aria-current)
+     footer                   the Layout bottom rule + /privacy link (nav's bookend)
      main                     the centered reading column (measure + gutters)
      main h1–h4               serif headings, vertical-rhythm margins
      main p / strong / em     body copy + emphasis
@@ -1196,7 +1197,61 @@ article > .tags {
 }
 
 /* -----------------------------------------------------------------------------
-   20. ACCESSIBILITY — reduced motion
+   20. FOOTER (bottom of Layout.astro)
+   The nav's bookend: same mono furniture voice, same measure, same hairline —
+   a rule ABOVE instead of below. One link (/privacy), resting in the quietest
+   readable ink, since this is reference material a reader goes looking for
+   rather than a destination we're offering.
+
+   STICKY: body becomes a flex column so the footer is pushed to the viewport
+   bottom on short pages (/about, /404) instead of floating mid-screen under two
+   lines of text. `width: 100%` on the children is load-bearing, not decoration —
+   an auto inline margin on a flex item overrides the default stretch and sizes
+   the box to fit-content, which would collapse the reading column on short
+   pages. Setting the width explicitly restores the block-layout behavior
+   (fill, then cap at max-width, then center), so §3/§4 keep working untouched.
+   --------------------------------------------------------------------------- */
+body {
+	display: flex;
+	flex-direction: column;
+}
+nav,
+main,
+footer {
+	width: 100%;
+}
+main {
+	flex: 1;                      /* absorb the slack; the footer rides the bottom */
+}
+footer {
+	max-width: var(--measure);
+	margin-inline: auto;
+	padding: var(--space-4) var(--gutter);
+	border-top: 1px solid var(--border);
+
+	font-family: var(--font-mono);
+	font-size: var(--fs-xs);
+	letter-spacing: 0.04em;
+}
+footer a {
+	color: var(--muted);
+	text-decoration: none;
+	transition: color var(--dur) var(--ease);
+}
+footer a:hover,
+footer a:focus-visible {
+	color: var(--accent-hover);
+}
+/* same "you are here" cue the nav uses, so /privacy reads as current when open */
+footer a[aria-current="page"] {
+	color: var(--accent);
+	text-decoration: underline;
+	text-decoration-thickness: 1px;
+	text-underline-offset: 0.35em;
+}
+
+/* -----------------------------------------------------------------------------
+   21. ACCESSIBILITY — reduced motion
    These pages have no ambient animation by design; the only motion is the tiny
    hover color/underline transitions. Honor the preference and drop even those.
    --------------------------------------------------------------------------- */

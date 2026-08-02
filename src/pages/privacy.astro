@@ -1,0 +1,98 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { GISCUS } from '../lib/giscus';
+
+// The site's privacy notice (GDPR Art. 13 transparency). Deliberately concrete:
+// it names every third party the browser actually contacts and every byte the
+// site keeps on the reader's device, because for a static site that list is
+// short enough to state exhaustively rather than hedge.
+//
+// KEEP IN SYNC — this page is prose ABOUT code, so it goes stale silently.
+// Revisit it whenever any of these change:
+//   • Comments.astro          the giscus load trigger + what it contacts
+//   • Layout.astro            the localStorage theme key
+//   • BlogSearch.tsx          search staying local (Pagefind ships an index, not queries)
+//   • astro.config.mjs        any integration that adds a runtime third party
+//   • any new embed, font host, analytics, or CDN — the "no analytics" claim
+//     below is only true while it stays true.
+const repoUrl = `https://github.com/${GISCUS.repo}`;
+---
+
+<Layout title="Privacy">
+	<h1>Privacy</h1>
+	<p class="lede">
+		This is a personal site. It has no analytics, no advertising, no trackers,
+		and sets no cookies of its own.
+	</p>
+
+	<h2>What the site stores on your device</h2>
+	<p>
+		One thing: your light/dark theme choice, under the key <code>theme</code> in
+		your browser's local storage — and only if you press the theme toggle. It
+		stays on your device, is never sent anywhere, and clearing your site data
+		removes it. If you never touch the toggle, nothing is stored and the site
+		follows your operating system's appearance setting.
+	</p>
+	<p>
+		There are no cookies. Nothing here profiles you, follows you between visits,
+		or tries to work out who you are.
+	</p>
+
+	<h2>Comments</h2>
+	<p>
+		Blog posts carry comments powered by <a href="https://giscus.app">giscus</a>,
+		which stores the discussion in
+		<a href={`${repoUrl}/discussions`}>GitHub Discussions</a> on this site's
+		repository. The widget loads from <code>giscus.app</code> and its avatars
+		from <code>githubusercontent.com</code>, so when it loads, those services
+		receive your IP address, your browser's user-agent string, and the address
+		of the post you're reading. That is inherent to loading anything from
+		another server — it is not extra data collection by the widget.
+	</p>
+	<p>
+		The comments load only when you scroll far enough down a post to reach them.
+		Stop reading before the end and your browser never contacts giscus or GitHub
+		at all. Reading comments is anonymous and needs no account.
+	</p>
+	<p>
+		Signing in with GitHub is required only to <em>post</em> a comment or leave a
+		reaction. If you do sign in, giscus keeps an access token in its own storage
+		on <code>giscus.app</code> to hold your session — that is between you and
+		giscus, and this site never sees it. Anything you post is a public GitHub
+		Discussion comment under your GitHub account, governed by
+		<a href="https://docs.github.com/site-policy/privacy-policies/github-privacy-statement">
+			GitHub's privacy statement</a>. To edit or delete a comment, use GitHub
+		— the comment lives there, not here.
+	</p>
+
+	<h2>Search</h2>
+	<p>
+		Blog search runs entirely in your browser. The search index is downloaded as
+		static files and queried locally; what you type is never sent to a server,
+		here or anywhere else.
+	</p>
+
+	<h2>Hosting</h2>
+	<p>
+		The site is served by GitHub Pages as static files. Like any web server,
+		GitHub's records requests — including IP addresses — for delivery and abuse
+		prevention. That happens at the hosting layer, on every visit, and is
+		covered by
+		<a href="https://docs.github.com/site-policy/privacy-policies/github-privacy-statement">
+			GitHub's privacy statement</a>. It applies whether or not you go anywhere
+		near the comments.
+	</p>
+
+	<h2>Everything else is local</h2>
+	<p>
+		Fonts, math typesetting, and the comment widget's stylesheet are all served
+		from this site rather than a CDN. Apart from the comments described above,
+		loading a page here contacts no third party.
+	</p>
+
+	<h2>Questions</h2>
+	<p>
+		Ask in <a href={`${repoUrl}/discussions`}>the discussions</a> or open an
+		issue on <a href={repoUrl}>the repository</a>.
+	</p>
+</Layout>

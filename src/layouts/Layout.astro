@@ -86,6 +86,13 @@ const isActive = (href: string) =>
 		<main class:list={{ wide }} data-pagefind-ignore>
 			<slot />
 		</main>
+		{/* Site footer — deliberately one link. /privacy is the site's transparency
+		    notice (GDPR Art. 13), and a notice nobody can find isn't one, so it
+		    needs a reachable home on every page. Kept out of the top nav: it's
+		    reference material, not a destination. */}
+		<footer>
+			<a href="/privacy" aria-current={isActive('/privacy') ? 'page' : undefined}>Privacy</a>
+		</footer>
 		{/* Toggle behavior. A bundled Astro <script> is an ES module = deferred,
 		    so the DOM (and the button) is ready when it runs. The correct icon +
 		    palette are already painted by the no-FOUC head script and the CSS
