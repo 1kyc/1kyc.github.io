@@ -10,12 +10,6 @@ import '@fontsource-variable/noto-sans/index.css';
 import CjkFonts from '../components/CjkFonts.astro';
 import KatexStyles from '../components/KatexStyles.astro';
 
-import { AUTHOR, CODE_LICENSE_URL, CONTENT_LICENSE_URL, REPO_URL } from '../lib/site';
-
-// Stamped at BUILD time, so the footer's year advances with each deploy without
-// shipping a line of JS to compute it.
-const year = new Date().getFullYear();
-
 interface Props {
 	title: string;
 	lang?: string;
@@ -92,32 +86,10 @@ const isActive = (href: string) =>
 		<main class:list={{ wide }} data-pagefind-ignore>
 			<slot />
 		</main>
-		{/* Site footer — the quiet, always-there half of the nav. Everything here is
-		    reference material rather than a destination, which is exactly why none
-		    of it belongs in the top nav:
-		      RSS      the feed exists but is otherwise only a <link> in <head>,
-		               i.e. findable by readers' software and by nobody else.
-		      Source   the site is its own repo; it also makes /privacy checkable.
-		      Privacy  the transparency notice (GDPR Art. 13) — a notice nobody can
-		               find isn't one, so it needs a home on every page.
-		    A plain <div>, NOT a <nav>: content.css styles the `nav` element itself
-		    (section 3), so a second one here would inherit the top bar's rule and
-		    padding. */}
-		<footer>
-			{/* Both licenses, named rather than merged into a vague "some rights
-			    reserved": the split is the useful part, and a reader arrives here
-			    holding either a post or the source. */}
-			<p class="footer-legal">
-				<span>© {year} {AUTHOR}</span> ·
-				<span>code <a href={CODE_LICENSE_URL}>MIT</a></span> ·
-				<span>posts <a href={CONTENT_LICENSE_URL}>CC BY 4.0</a></span>
-			</p>
-			<div class="footer-links">
-				<a href="/rss.xml">RSS</a>
-				<a href={REPO_URL}>Source</a>
-				<a href="/privacy" aria-current={isActive('/privacy') ? 'page' : undefined}>Privacy</a>
-			</div>
-		</footer>
+		{/* No site footer, deliberately. The reference material a footer would carry
+		    — privacy, licensing, the feed — lives in one place on /about, which is
+		    already in the nav above. Every page then ends where its content ends,
+		    which is the whole point of the reading room. */}
 		{/* Toggle behavior. A bundled Astro <script> is an ES module = deferred,
 		    so the DOM (and the button) is ready when it runs. The correct icon +
 		    palette are already painted by the no-FOUC head script and the CSS

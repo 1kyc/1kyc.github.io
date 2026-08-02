@@ -35,7 +35,11 @@ theme-toggle script (no framework island) in the shared `Layout.astro`.
 - **Dual-licensed:** `LICENSE` (MIT) covers the code; `LICENSE-CONTENT`
   (CC BY 4.0) covers the posts in `src/content/blog/`; bundled third-party
   assets keep their own (`CREDITS.md`, `licenses/`). The README's License table
-  is the summary; the footer links both. Adding a license = update all three.
+  is the summary; `/about` links both. Adding a license = update all three.
+- **No site footer.** The reference shelf a footer would carry (privacy,
+  licensing, feed) lives in `/about`'s "The site" list — `/about` is in the nav,
+  so it's one hop from anywhere. Pages end where their content ends; don't
+  reintroduce a footer without asking.
 - **`src/pages/privacy.astro`** is prose ABOUT code, so it goes stale silently.
   It carries a KEEP IN SYNC list naming the files whose behavior it describes —
   honor it when touching comments, theme storage, search, or any new third
