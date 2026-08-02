@@ -1,6 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { GISCUS } from '../lib/giscus';
+import { DISCUSSIONS_URL, REPO_URL } from '../lib/site';
 
 // The site's privacy notice (GDPR Art. 13 transparency). Deliberately concrete:
 // it names every third party the browser actually contacts and every byte the
@@ -15,7 +15,6 @@ import { GISCUS } from '../lib/giscus';
 //   • astro.config.mjs        any integration that adds a runtime third party
 //   • any new embed, font host, analytics, or CDN — the "no analytics" claim
 //     below is only true while it stays true.
-const repoUrl = `https://github.com/${GISCUS.repo}`;
 ---
 
 <Layout title="Privacy">
@@ -42,7 +41,7 @@ const repoUrl = `https://github.com/${GISCUS.repo}`;
 	<p>
 		Blog posts carry comments powered by <a href="https://giscus.app">giscus</a>,
 		which stores the discussion in
-		<a href={`${repoUrl}/discussions`}>GitHub Discussions</a> on this site's
+		<a href={DISCUSSIONS_URL}>GitHub Discussions</a> on this site's
 		repository. The widget loads from <code>giscus.app</code> and its avatars
 		from <code>githubusercontent.com</code>, so when it loads, those services
 		receive your IP address, your browser's user-agent string, and the address
@@ -75,7 +74,7 @@ const repoUrl = `https://github.com/${GISCUS.repo}`;
 	<h2>Hosting</h2>
 	<p>
 		The site is served by GitHub Pages as static files. Like any web server,
-		GitHub's records requests — including IP addresses — for delivery and abuse
+		GitHub records requests — including IP addresses — for delivery and abuse
 		prevention. That happens at the hosting layer, on every visit, and is
 		covered by
 		<a href="https://docs.github.com/site-policy/privacy-policies/github-privacy-statement">
@@ -92,7 +91,7 @@ const repoUrl = `https://github.com/${GISCUS.repo}`;
 
 	<h2>Questions</h2>
 	<p>
-		Ask in <a href={`${repoUrl}/discussions`}>the discussions</a> or open an
-		issue on <a href={repoUrl}>the repository</a>.
+		Ask in <a href={DISCUSSIONS_URL}>the discussions</a> or open an
+		issue on <a href={REPO_URL}>the repository</a>.
 	</p>
 </Layout>

@@ -10,6 +10,12 @@ import '@fontsource-variable/noto-sans/index.css';
 import CjkFonts from '../components/CjkFonts.astro';
 import KatexStyles from '../components/KatexStyles.astro';
 
+import { AUTHOR, LICENSE_URL, REPO_URL } from '../lib/site';
+
+// Stamped at BUILD time, so the footer's year advances with each deploy without
+// shipping a line of JS to compute it.
+const year = new Date().getFullYear();
+
 interface Props {
 	title: string;
 	lang?: string;
@@ -86,12 +92,26 @@ const isActive = (href: string) =>
 		<main class:list={{ wide }} data-pagefind-ignore>
 			<slot />
 		</main>
-		{/* Site footer — deliberately one link. /privacy is the site's transparency
-		    notice (GDPR Art. 13), and a notice nobody can find isn't one, so it
-		    needs a reachable home on every page. Kept out of the top nav: it's
-		    reference material, not a destination. */}
+		{/* Site footer — the quiet, always-there half of the nav. Everything here is
+		    reference material rather than a destination, which is exactly why none
+		    of it belongs in the top nav:
+		      RSS      the feed exists but is otherwise only a <link> in <head>,
+		               i.e. findable by readers' software and by nobody else.
+		      Source   the site is its own repo; it also makes /privacy checkable.
+		      Privacy  the transparency notice (GDPR Art. 13) — a notice nobody can
+		               find isn't one, so it needs a home on every page.
+		    A plain <div>, NOT a <nav>: content.css styles the `nav` element itself
+		    (section 3), so a second one here would inherit the top bar's rule and
+		    padding. */}
 		<footer>
-			<a href="/privacy" aria-current={isActive('/privacy') ? 'page' : undefined}>Privacy</a>
+			<p class="footer-legal">
+				© {year} {AUTHOR} · <a href={LICENSE_URL}>MIT</a>
+			</p>
+			<div class="footer-links">
+				<a href="/rss.xml">RSS</a>
+				<a href={REPO_URL}>Source</a>
+				<a href="/privacy" aria-current={isActive('/privacy') ? 'page' : undefined}>Privacy</a>
+			</div>
 		</footer>
 		{/* Toggle behavior. A bundled Astro <script> is an ES module = deferred,
 		    so the DOM (and the button) is ready when it runs. The correct icon +

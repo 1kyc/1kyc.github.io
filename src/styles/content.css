@@ -24,7 +24,9 @@
      body                     page base: bg, ink, serif, min-height, reset
      nav                      the Layout top nav (mono, quiet; current = accent + underline)
        nav a[aria-current]      the active page link (dev adds aria-current)
-     footer                   the Layout bottom rule + /privacy link (nav's bookend)
+     footer                   the Layout bottom rule (nav's bookend)
+       .footer-legal            © + license line, left
+       .footer-links            RSS · Source · Privacy, right
      main                     the centered reading column (measure + gutters)
      main h1–h4               serif headings, vertical-rhythm margins
      main p / strong / em     body copy + emphasis
@@ -1199,9 +1201,10 @@ article > .tags {
 /* -----------------------------------------------------------------------------
    20. FOOTER (bottom of Layout.astro)
    The nav's bookend: same mono furniture voice, same measure, same hairline —
-   a rule ABOVE instead of below. One link (/privacy), resting in the quietest
-   readable ink, since this is reference material a reader goes looking for
-   rather than a destination we're offering.
+   a rule ABOVE instead of below. Two groups on one row (legal left, links
+   right), resting in the quietest readable ink, since this is reference
+   material a reader goes looking for rather than a destination we're offering.
+   On narrow screens the row wraps and the groups stack, legal first.
 
    STICKY: body becomes a flex column so the footer is pushed to the viewport
    bottom on short pages (/about, /404) instead of floating mid-screen under two
@@ -1229,9 +1232,25 @@ footer {
 	padding: var(--space-4) var(--gutter);
 	border-top: 1px solid var(--border);
 
+	display: flex;
+	flex-wrap: wrap;                  /* stack the groups before they ever collide */
+	justify-content: space-between;
+	align-items: baseline;
+	gap: var(--space-2) var(--space-4);
+
 	font-family: var(--font-mono);
 	font-size: var(--fs-xs);
 	letter-spacing: 0.04em;
+	color: var(--muted);
+}
+/* the © line is furniture, not prose — kill the <p> margins §6 never gave it */
+.footer-legal {
+	margin: 0;
+}
+.footer-links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-2) var(--space-4);
 }
 footer a {
 	color: var(--muted);
