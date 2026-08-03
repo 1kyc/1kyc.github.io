@@ -25,10 +25,18 @@
 	  comment, and an invalid favicon fails silently (the browser just shows a
 	  blank icon). Use "=" or a colon instead.
 
-	  These numbers are the source of truth. favicon.ico and apple-touch-icon.png
-	  are rasterised from this file, so regenerate them together.
+	  rx=14 (21.9%) rounds the tab icon, so its corners are transparent. Browsers
+	  do NOT mask favicons, so rounding has to be baked in right here.
+
+	  apple-touch-icon.png is the one exception and must stay a full bleed,
+	  opaque SQUARE. iOS applies its own mask to it, so a pre-rounded icon gets
+	  cut twice and the home screen wallpaper shows through around the corners.
+	  To regenerate it, render this file at 180x180 with rx REMOVED.
+
+	  These numbers are the source of truth. favicon.ico is rasterised from this
+	  file as-is, at 16 and 32.
 	-->
-	<rect width="64" height="64" fill="#0073C0"/>
+	<rect width="64" height="64" rx="14" fill="#0073C0"/>
 	<path d="M4.48 36.32A27.52 27.52 0 0 1 59.52 36.32A27.52 18.88 0 0 1 4.48 36.32Z" fill="#FFFFFF"/>
 	<g fill="#000000">
 		<circle cx="32" cy="29.53" r="3.36"/>
