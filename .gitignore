@@ -33,3 +33,6 @@ pnpm-debug.log*
 # .claude/hooks/mirror-user-files.py so the VS Code Explorer can reach them
 # (the session scratchpad lives in /tmp, outside this bind mount).
 .preview/
+
+# Python bytecode cache (the .claude/hooks/ scripts)
+__pycache__/

@@ -9,6 +9,7 @@ import '@fontsource-variable/noto-sans/index.css';
 
 import CjkFonts from '../components/CjkFonts.astro';
 import KatexStyles from '../components/KatexStyles.astro';
+import SiteIcons from '../components/SiteIcons.astro';
 
 interface Props {
 	title: string;
@@ -50,12 +51,7 @@ const isActive = (href: string) =>
 				if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
 			} catch (e) {}
 		</script>
-		{/* SVG first: browsers that support it use it at every size, so it is the
-		    one that has to stay legible in a 16px tab. The .ico is the fallback
-		    for browsers that do not (16 + 32 only; the SVG covers everyone else). */}
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" sizes="16x16 32x32" />
-		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<SiteIcons />
 		<meta name="generator" content={Astro.generator} />
 		<link rel="alternate" type="application/rss+xml" title="1kyc — Blog" href="/rss.xml" />
 		<title>{title}</title>

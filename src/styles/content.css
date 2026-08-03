@@ -268,9 +268,29 @@ body {
    dev adds aria-current="page" to the active link (see WIRING).
    --------------------------------------------------------------------------- */
 nav {
+	/* Shared optical correction for the nav's non-text furniture (the mark, the
+	   theme toggle). Both are centred on the LINE BOX, which reserves ascender
+	   and descender room the labels do not fill, leaving them sitting low. The
+	   target is the text's x-height centre, which here coincides exactly with
+	   the centre of the full ink band (cap top to descender bottom); two
+	   independent references agreeing is the sign it is the real optical centre
+	   rather than a preference. Measured at this nav's 15px: x-height 8px, ink
+	   band ascender 11 over descender 3, both giving 0.75px = 0.05em. In em so
+	   it tracks --fs-sm. Cap-height centring was tried and overshoots, because
+	   these labels are lowercase-dominant. */
+	--nav-lift: -0.05em;
+
 	display: flex;
 	flex-wrap: wrap;              /* never overflow narrow screens */
-	gap: var(--space-2) var(--space-4);
+	/* Column gap is FLUID, not a breakpoint. This row is tight: its fixed parts
+	   (four labels, the toggle, the mark) are 261.6px, so at the full 1.5rem gap
+	   it needs 381.6px and overflows below ~424px, dropping the auto-margined
+	   toggle onto a second row. A hard breakpoint would have to sit above that
+	   and would then snap the gap in a nav with ~50px of slack; clamp tracks the
+	   shortfall continuously instead, and matches --gutter's idiom right below.
+	   Unchanged at 1.5rem above ~686px. Under ~360px it still wraps, as it did
+	   before the mark existed. */
+	gap: var(--space-2) clamp(0.75rem, 3.5vw, var(--space-4));
 	align-items: baseline;
 
 	max-width: var(--measure);
@@ -309,35 +329,20 @@ nav a[aria-current="page"] {
 
    The nav is baseline-aligned, and a replaced element's baseline is its BOTTOM
    edge, which would hang the mark low against the link text. align-self:center
-   opts it out; the negative margin-block then folds any extra height back into
-   the text line so the nav row keeps its rhythm (same trick as .theme-toggle).
-   Sized at 1.5rem to match that line box, so today the margin resolves to zero
-   and only starts working if --mark-size is tuned up.
+   opts it out, then --nav-lift (set on nav, see section 3) corrects the residual
+   optical offset that centring on the line box leaves behind.
+
+   Keep --mark-size and the width/height attributes on the <img> in Layout.astro
+   in step: the attributes supply the aspect-ratio box the browser reserves
+   before the SVG loads, so a size change has to happen in both places.
    --------------------------------------------------------------------------- */
 .nav-mark {
-	--mark-size: 1.5rem;             /* 24px, matches the nav line box; tunable */
+	--mark-size: 1.5rem;             /* 24px; mirrored by the <img> width/height */
 	align-self: center;
 	display: inline-flex;
-	margin-block: calc((var(--mark-size) - 1.5rem) / -2);
 	border-radius: var(--radius);
 	transition: opacity var(--dur) var(--ease);
-
-	/* Optical lift. align-self:center centres the mark on the LINE BOX, which
-	   reserves ascender and descender room the labels do not fill, so the mark
-	   sat 0.75px low and read heavy. Correcting to the CAP-height centre
-	   (1.75px) then overshot and read high, because these labels are
-	   lowercase-dominant: one capital each and the rest x-height, so their
-	   visual mass sits below the cap band.
-
-	   The target is the x-height centre, which for this text is also the centre
-	   of the full ink band (cap top to descender bottom). Both land on the same
-	   y, which is a good sign it is the real optical centre rather than a
-	   preference. Measured at the nav's 15px: x-height 8px and an ink band of
-	   ascender 11 over descender 3, both giving a 0.75px = 0.05em lift.
-
-	   In em so it tracks --fs-sm; a transform rather than a margin so the nav's
-	   row height is untouched. */
-	transform: translateY(-0.05em);
+	transform: translateY(var(--nav-lift));
 }
 .nav-mark img {
 	display: block;
@@ -350,17 +355,6 @@ nav a[aria-current="page"] {
 	opacity: 0.72;
 }
 
-/* The nav was already running at ~99% of its width on a phone before the mark
-   existed: at 375px it needed 333.6px of the 337.5px available, under 4px of
-   slack. Adding the mark pushes it over, and the theme toggle (which carries
-   margin-inline-start:auto) drops onto a second row, doubling the nav's height.
-   Tightening the column gap on small screens alone buys back the room. Desktop
-   is untouched. Below ~360px it still wraps, exactly as it did before. */
-@media (max-width: 30rem) {
-	nav {
-		column-gap: 0.75rem;
-	}
-}
 
 /* -----------------------------------------------------------------------------
    3a. THEME TOGGLE — quiet nav furniture (light/dark switch)
@@ -383,6 +377,7 @@ nav a[aria-current="page"] {
 	--tt-size: 2.25rem;              /* 36px hit area — tunable */
 	margin-inline-start: auto;       /* sit at the far right, after the links */
 	align-self: center;              /* center on the baseline-aligned nav row */
+	transform: translateY(var(--nav-lift)); /* same optical lift as .nav-mark */
 
 	display: inline-flex;
 	align-items: center;

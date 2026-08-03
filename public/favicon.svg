@@ -1,40 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
 	<!--
 	  Redraw of the owner's avatar: a Tachikoma-inspired head, i.e. a white
-	  sphere standing out of a blue body, with three eyes that rotate to face
-	  whatever they are looking at. Built FROM that model rather than traced
-	  from the original PowerPoint PNG, which had no anti-aliasing and so looked
-	  ragged when large and mushy when small. Hence:
+	  sphere standing out of a blue body, three eyes facing the viewer. Built
+	  from that model, so the shape is deliberate and not to be "corrected":
+	  the top arc is a TRUE semicircle (equal radii, the sphere's silhouette)
+	  while the base is the mounting ring in perspective (27.52 by 18.88). The
+	  eyes sit on the sphere's projected centre, on an equilateral triangle.
+	  Eyes are 2x the source avatar's, which vanish under one pixel at 16px.
 
-	    top arc   A 27.52 27.52 = the sphere's silhouette, so radii are EQUAL.
-	    base arc  A 27.52 18.88 = the ring where sphere meets body, seen in
-	                              perspective. 18.88/27.52 = sin(43 deg).
-	    eyes      = pointed at the viewer, so their centroid sits on the
-	                sphere's projected centre (y=36.32, the widest line), on an
-	                equilateral triangle of side 11.76.
+	  NEVER write a double hyphen in this comment. XML forbids it inside one,
+	  and an invalid favicon fails silently. Use "=" or a colon.
 
-	  Two deliberate departures from the source PNG, both for icon legibility:
-	    1. Eyes are 2x their original diameter. At 16px the originals fell under
-	       one device pixel and antialiased into a grey smudge.
-	    2. The VISIBLE shape is centred (equal 8.8 margins top and bottom), not
-	       the sphere. Centring the sphere is truer to the model, but the base is
-	       cut off by the body, so it pools blue underneath. Framing is not part
-	       of the model, so this costs nothing.
-
-	  NOTE: never write a double hyphen in this comment. XML forbids it inside a
-	  comment, and an invalid favicon fails silently (the browser just shows a
-	  blank icon). Use "=" or a colon instead.
-
-	  rx=14 (21.9%) rounds the tab icon, so its corners are transparent. Browsers
-	  do NOT mask favicons, so rounding has to be baked in right here.
-
-	  apple-touch-icon.png is the one exception and must stay a full bleed,
-	  opaque SQUARE. iOS applies its own mask to it, so a pre-rounded icon gets
-	  cut twice and the home screen wallpaper shows through around the corners.
-	  To regenerate it, render this file at 180x180 with rx REMOVED.
-
-	  These numbers are the source of truth. favicon.ico is rasterised from this
-	  file as-is, at 16 and 32.
+	  Derived files, both rendered headless from THIS file (see git log for the
+	  full derivation and the alternatives that were rejected):
+	    favicon.ico          frames at 16 and 32.
+	    apple-touch-icon.png 180x180, with rx REMOVED. It must stay an opaque
+	                         square: iOS applies its own mask, so a pre-rounded
+	                         icon is cut twice and leaks wallpaper at the corners.
 	-->
 	<rect width="64" height="64" rx="14" fill="#0073C0"/>
 	<path d="M4.48 36.32A27.52 27.52 0 0 1 59.52 36.32A27.52 18.88 0 0 1 4.48 36.32Z" fill="#FFFFFF"/>

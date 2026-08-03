@@ -38,19 +38,22 @@ def project_dir() -> Path:
 
 
 def find_code() -> str | None:
-    """Locate the remote `code` CLI. PATH first, then the known server layout."""
+    """Locate the remote `code` CLI. PATH first, then the known server layouts.
+
+    Several VS Code server versions can be installed side by side, so the
+    fallback takes the most recently written one. glob() on a missing directory
+    yields nothing rather than raising, so the roots need no existence guard.
+    """
     found = shutil.which("code")
     if found:
         return found
-    for root in ("/vscode/vscode-server/bin", str(Path.home() / ".vscode-server/bin")):
-        matches = sorted(Path(root).glob("*/bin/remote-cli/code") if Path(root).exists()
-                         else [], key=lambda p: p.stat().st_mtime, reverse=True)
-        # linux-x64 nests one level deeper than the user-local layout.
-        matches += sorted(Path(root).glob("*/*/bin/remote-cli/code") if Path(root).exists()
-                          else [], key=lambda p: p.stat().st_mtime, reverse=True)
-        if matches:
-            return str(matches[0])
-    return None
+    roots = ("/vscode/vscode-server/bin", str(Path.home() / ".vscode-server/bin"))
+    # The system-wide layout nests one level deeper (arch dir) than the user one.
+    patterns = ("*/bin/remote-cli/code", "*/*/bin/remote-cli/code")
+    matches = [p for root in roots for pat in patterns for p in Path(root).glob(pat)]
+    if not matches:
+        return None
+    return str(max(matches, key=lambda p: p.stat().st_mtime))
 
 
 def prune(preview: Path) -> None:
@@ -90,10 +93,9 @@ def main() -> None:
             continue
 
         # Already inside the workspace? The Explorer can reach it; just open it.
-        try:
-            src.relative_to(root)
+        if src.is_relative_to(root):
             target = src
-        except ValueError:
+        else:
             try:
                 preview.mkdir(parents=True, exist_ok=True)
                 target = preview / src.name
@@ -111,23 +113,27 @@ def main() -> None:
         except OSError:
             pass
 
-    if opened:
+    # Env check first: it is free, and without a live socket the CLI lookup is
+    # wasted work. One spawn for all of them (the CLI takes many paths), which
+    # keeps a wedged socket to a single CODE_TIMEOUT instead of one per file.
+    if opened and os.environ.get("VSCODE_IPC_HOOK_CLI"):
         code = find_code()
-        if code and os.environ.get("VSCODE_IPC_HOOK_CLI"):
-            for target in opened:
-                try:
-                    subprocess.run([code, "-r", str(target)], timeout=CODE_TIMEOUT,
-                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                   check=False)
-                except (subprocess.TimeoutExpired, OSError):
-                    break  # socket is wedged; .preview/ copies still stand in
+        if code:
+            try:
+                subprocess.run([code, "-r", *(str(p) for p in opened)],
+                               timeout=CODE_TIMEOUT, stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL, check=False)
+            except (subprocess.TimeoutExpired, OSError):
+                pass  # socket is wedged; the .preview/ copies still stand in
 
-    if mirrored or opened:
-        shown = opened or mirrored
+    # Report the copies when there are any, else the files merely opened. Saying
+    # "mirrored" about a file that already lived in the workspace would be a lie.
+    shown = mirrored or opened
+    if shown:
         names = ", ".join(p.name for p in shown[:3])
         extra = f" (+{len(shown) - 3} more)" if len(shown) > 3 else ""
-        where = f"{PREVIEW_DIRNAME}/" if mirrored else "workspace"
-        json.dump({"systemMessage": f"Mirrored to {where}: {names}{extra}",
+        verb = f"Mirrored to {PREVIEW_DIRNAME}/" if mirrored else "Opened"
+        json.dump({"systemMessage": f"{verb}: {names}{extra}",
                    "suppressOutput": True}, sys.stdout)
 
     sys.exit(0)
