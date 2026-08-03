@@ -47,6 +47,33 @@ theme-toggle script (no framework island) in the shared `Layout.astro`.
   turns on device storage, not on IP transmission), but the transparency notice
   is required either way.
 
+## Writing posts
+
+- **English posts are ASCII-only.** No em dashes, en dashes, curly quotes,
+  ellipsis characters, or arrows in `src/content/blog/` posts written in
+  English. Not a readability judgement: em dashes in particular are now a
+  widely-read tell for AI-generated prose, and the point is to avoid the
+  signal, not the punctuation. Replace a would-be em dash with a colon,
+  parentheses, a comma plus "including", two sentences, or a "from X to Y"
+  construction, whichever fits the sentence. Write `...` and `->` rather than
+  the single-character forms.
+- CJK posts (`lang: zh-Hans`, `lang: ja`) are exempt for obvious reasons; the
+  rule is about English prose. Verify a post with
+  `grep -nP '[^\x00-\x7F]' src/content/blog/<slug>/index.md`, which should
+  print nothing for an English one.
+- This applies to post CONTENT. The rest of the repo (this file included) still
+  contains em dashes; that is a known inconsistency, not a licence to add more.
+- **Careful: ASCII source does not guarantee ASCII output.** Astro's markdown
+  `smartypants` is on by default and this repo does not override it, so in
+  rendered prose (not code blocks) `--` becomes an em dash, `...` becomes an
+  ellipsis character, and straight quotes become curly ones. Typing `--` is
+  therefore a silent way to ship the exact character the rule exists to avoid.
+  Check the BUILT page, not just the source:
+  `grep -oP '[^\x00-\x7F]' dist/blog/<slug>/index.html | sort | uniq -c`.
+  Expect KaTeX glyphs (mu, pi, minus signs) on math posts, the middle-dot
+  separator from the post meta line, and the RSS link title in `<head>`;
+  anything beyond those came from the prose.
+
 ## Workflow rules
 
 - `main` is protected — never push to it directly. Work on a `feat/…`, `fix/…`,

@@ -1,22 +1,22 @@
 ---
 title: 'Cheatsheet'
-description: 'My own reference for how to write posts here — frontmatter, code blocks, math, callouts, and everything the reading-room design styles.'
+description: 'My own reference for how to write posts here: frontmatter, code blocks, math, callouts, and everything the reading-room design styles.'
 pubDate: 2026-07-23
 tags: ['meta', 'reference']
 ---
 
-My cheat-sheet for writing here: each section shows the raw Markdown, then how it renders — so it doubles as a live test of everything the reading-room design styles.
+My cheatsheet for writing here: each section shows the raw Markdown, then how it renders. That makes it a live test of the design as much as a reference.
 
 <!--more-->
 
-Posts are plain Markdown (`.md`), no per-post component imports. Each post is a folder — `src/content/blog/<slug>/index.md` — so images colocate; the URL is the folder name and the date lives in frontmatter. Text above the `<!--more-->` marker becomes the card excerpt when a post has no `description`.
+Posts are plain Markdown (`.md`), no per-post component imports. Each post is a folder (`src/content/blog/<slug>/index.md`), so images colocate; the URL is the folder name and the date lives in frontmatter. Text above the `<!--more-->` marker becomes the card excerpt when a post has no `description`.
 
 ## Frontmatter
 
 ```yaml
 ---
 title: 'Cheatsheet'                     # required
-description: 'One-line card blurb…'     # optional → falls back to the excerpt
+description: 'One-line card blurb...'   # optional; falls back to the excerpt
 pubDate: 2026-07-23                     # required; drives sort order
 updatedDate: 2026-07-24                 # optional
 tags: ['meta', 'authoring']             # optional
@@ -46,7 +46,7 @@ lang: en                                # en | zh-Hans | ja (switches the CJK fa
 ### A subsection
 ```
 
-**Renders as:** section headings that build the table of contents automatically — the sticky sidebar (wide screens) or `Contents` disclosure (narrow) on this post. It appears only with **three or more** headings.
+**Renders as:** section headings that build the table of contents automatically, shown as the sticky sidebar (wide screens) or `Contents` disclosure (narrow) on this post. It appears only with **three or more** headings.
 
 ## Lists
 
@@ -82,7 +82,7 @@ lang: en                                # en | zh-Hans | ja (switches the CJK fa
 
 ## Code blocks
 
-Fenced blocks run through Expressive Code — title bar, highlighted ranges, diff markers, and a copy button, all with zero framework JavaScript.
+Fenced blocks run through Expressive Code, which adds a title bar, highlighted ranges, diff markers, and a copy button, all with zero framework JavaScript.
 
 ````md
 ```js title="orbit.js" {2-3} ins={6} del={5}
@@ -108,11 +108,11 @@ export function period(semiMajorAxisMeters, mu) {
 }
 ```
 
-Inline code — `const mu = 3.986e14` — stays a mono chip in running text.
+Inline code (`const mu = 3.986e14`) stays a mono chip in running text.
 
 ## Math
 
-KaTeX renders at build time — no client JavaScript, and the stylesheet loads only on pages that contain math.
+KaTeX renders at build time, so there is no client JavaScript, and the stylesheet loads only on pages that contain math.
 
 ```md
 Inline $T = 2\pi\sqrt{a^3/\mu}$, and a display block:
@@ -147,7 +147,7 @@ The strongest warning, with a title.
 **Renders as:**
 
 :::note
-Neutral aside — inline `code` and [links](/blog) work inside.
+Neutral aside. Inline `code` and [links](/blog) work inside.
 :::
 
 :::tip
