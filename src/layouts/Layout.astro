@@ -68,6 +68,13 @@ const isActive = (href: string) =>
 		    discoverable and indexable, so their nav is plaintext by design.
 		    Keep this in the clear; only the root is hidden behind the maze. */}
 		<nav>
+			{/* The mark links INTO the maze at the root, which exposes no maze
+			    destination, so the root's crawler stance above is unaffected. It
+			    reuses /favicon.svg, already fetched for the tab icon, so it costs
+			    no extra request and cannot drift from the favicon. */}
+			<a class="nav-mark" href="/" aria-label="the maze">
+				<img src="/favicon.svg" alt="" width="24" height="24" />
+			</a>
 			<a href="/home" aria-current={isActive('/home') ? 'page' : undefined}>Home</a>
 			<a href="/blog" aria-current={isActive('/blog') ? 'page' : undefined}>Blog</a>
 			<a href="/projects" aria-current={isActive('/projects') ? 'page' : undefined}>Projects</a>
