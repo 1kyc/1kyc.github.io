@@ -322,15 +322,22 @@ nav a[aria-current="page"] {
 	border-radius: var(--radius);
 	transition: opacity var(--dur) var(--ease);
 
-	/* Optical lift. align-self:center centres the mark on the LINE BOX, and that
-	   box reserves descender depth the labels barely use (only the j in
-	   "Projects"), so the mark lands 1.75px BELOW the text's cap-height centre
-	   at the nav's 15px and reads low. Cap centre is the right target when
-	   setting a mark beside text: a lone descender should not drag the whole
-	   row down. Measured, not guessed: cap height 10px, so the correction is
-	   1.75px = 0.117em. Kept in em so it tracks --fs-sm, and applied as a
-	   transform rather than a margin so the nav's row height is untouched. */
-	transform: translateY(-0.117em);
+	/* Optical lift. align-self:center centres the mark on the LINE BOX, which
+	   reserves ascender and descender room the labels do not fill, so the mark
+	   sat 0.75px low and read heavy. Correcting to the CAP-height centre
+	   (1.75px) then overshot and read high, because these labels are
+	   lowercase-dominant: one capital each and the rest x-height, so their
+	   visual mass sits below the cap band.
+
+	   The target is the x-height centre, which for this text is also the centre
+	   of the full ink band (cap top to descender bottom). Both land on the same
+	   y, which is a good sign it is the real optical centre rather than a
+	   preference. Measured at the nav's 15px: x-height 8px and an ink band of
+	   ascender 11 over descender 3, both giving a 0.75px = 0.05em lift.
+
+	   In em so it tracks --fs-sm; a transform rather than a margin so the nav's
+	   row height is untouched. */
+	transform: translateY(-0.05em);
 }
 .nav-mark img {
 	display: block;
