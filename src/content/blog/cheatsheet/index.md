@@ -2,11 +2,10 @@
 title: 'Cheatsheet'
 description: 'My own reference for how to write posts here — frontmatter, code blocks, math, callouts, and everything the reading-room design styles.'
 pubDate: 2026-07-23
-tags: ['meta', 'authoring', 'reference']
-draft: true
+tags: ['meta', 'reference']
 ---
 
-My cheat-sheet for writing here: each section shows the raw Markdown, then how it renders. It stays `draft: true` — it never ships to production, but renders in `npm run dev`.
+My cheat-sheet for writing here: each section shows the raw Markdown, then how it renders — so it doubles as a live test of everything the reading-room design styles.
 
 <!--more-->
 
