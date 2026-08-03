@@ -86,6 +86,10 @@ const isActive = (href: string) =>
 		<main class:list={{ wide }} data-pagefind-ignore>
 			<slot />
 		</main>
+		{/* No site footer, deliberately. The reference material a footer would carry
+		    — privacy, licensing, the feed — lives in one place on /about, which is
+		    already in the nav above. Every page then ends where its content ends,
+		    which is the whole point of the reading room. */}
 		{/* Toggle behavior. A bundled Astro <script> is an ES module = deferred,
 		    so the DOM (and the button) is ready when it runs. The correct icon +
 		    palette are already painted by the no-FOUC head script and the CSS

@@ -1,7 +1,31 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { CODE_LICENSE_URL, CONTENT_LICENSE_URL, REPO_URL } from '../lib/site';
 ---
 
 <Layout title="About">
 	<h1>About — coming soon.</h1>
+
+	{/* The site's reference shelf. There is no footer (see Layout.astro), so the
+	    material a footer would carry lands here instead — one hop from anywhere,
+	    since /about is in the nav on every page. Privacy is listed first: it's
+	    the only entry with an obligation behind it (GDPR Art. 13 asks that the
+	    notice be easily accessible, which a nav-level page satisfies). */}
+	<h2>The site</h2>
+	<ul>
+		<li>
+			<a href="/privacy">Privacy</a> — what this site does and doesn't collect.
+			Short version: no analytics, no cookies of its own, and comments that
+			load from GitHub when you reach them.
+		</li>
+		<li>
+			<a href={REPO_URL}>Source</a> — the site is its own repository. The code
+			is <a href={CODE_LICENSE_URL}>MIT</a>; the posts are
+			<a href={CONTENT_LICENSE_URL}>CC BY 4.0</a>, so you're welcome to
+			republish or translate them with credit.
+		</li>
+		<li>
+			<a href="/rss.xml">Feed</a> — RSS for the blog.
+		</li>
+	</ul>
 </Layout>

@@ -22,13 +22,18 @@
 //      unreliable — treat pinning the id as part of first-run setup, not later
 //      hardening. (It also makes a category rename non-breaking.)
 //
+import { REPO_SLUG } from './site';
+
 // Why "Announcements": giscus's recommended category type. Only maintainers (and
 // the giscus app, on a commenter's behalf) can open top-level discussions there,
 // so readers can't spawn stray discussions — one discussion per post, created on
 // the first comment. Mapping is by `pathname`, stable across post edits.
 
 export const GISCUS = {
-	repo: '1kyc/1kyc.github.io',
+	// The repo the giscus app is installed on — the same one the footer's "Source"
+	// link and the privacy page point at, so it comes from lib/site (one string,
+	// one place) rather than being spelled out a third time here.
+	repo: REPO_SLUG,
 	repoId: 'R_kgDOS9HQaA',
 	category: 'Announcements',
 	/** REQUIRED for reliable comment creation — the DIC_… id (see SETUP §3).
