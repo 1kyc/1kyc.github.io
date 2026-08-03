@@ -268,9 +268,29 @@ body {
    dev adds aria-current="page" to the active link (see WIRING).
    --------------------------------------------------------------------------- */
 nav {
+	/* Shared optical correction for the nav's non-text furniture (the mark, the
+	   theme toggle). Both are centred on the LINE BOX, which reserves ascender
+	   and descender room the labels do not fill, leaving them sitting low. The
+	   target is the text's x-height centre, which here coincides exactly with
+	   the centre of the full ink band (cap top to descender bottom); two
+	   independent references agreeing is the sign it is the real optical centre
+	   rather than a preference. Measured at this nav's 15px: x-height 8px, ink
+	   band ascender 11 over descender 3, both giving 0.75px = 0.05em. In em so
+	   it tracks --fs-sm. Cap-height centring was tried and overshoots, because
+	   these labels are lowercase-dominant. */
+	--nav-lift: -0.05em;
+
 	display: flex;
 	flex-wrap: wrap;              /* never overflow narrow screens */
-	gap: var(--space-2) var(--space-4);
+	/* Column gap is FLUID, not a breakpoint. This row is tight: its fixed parts
+	   (four labels, the toggle, the mark) are 261.6px, so at the full 1.5rem gap
+	   it needs 381.6px and overflows below ~424px, dropping the auto-margined
+	   toggle onto a second row. A hard breakpoint would have to sit above that
+	   and would then snap the gap in a nav with ~50px of slack; clamp tracks the
+	   shortfall continuously instead, and matches --gutter's idiom right below.
+	   Unchanged at 1.5rem above ~686px. Under ~360px it still wraps, as it did
+	   before the mark existed. */
+	gap: var(--space-2) clamp(0.75rem, 3.5vw, var(--space-4));
 	align-items: baseline;
 
 	max-width: var(--measure);
@@ -301,6 +321,42 @@ nav a[aria-current="page"] {
 }
 
 /* -----------------------------------------------------------------------------
+   3aa. NAV MARK: the site icon at the head of the nav, linking to the maze at /
+   It points at /favicon.svg rather than a copy, so the browser serves it from
+   the cache entry it already filled for the tab icon (no extra request) and the
+   two can never drift apart. The rounded corners come from that file, and they
+   are transparent, so the mark sits on the page background in either theme.
+
+   The nav is baseline-aligned, and a replaced element's baseline is its BOTTOM
+   edge, which would hang the mark low against the link text. align-self:center
+   opts it out, then --nav-lift (set on nav, see section 3) corrects the residual
+   optical offset that centring on the line box leaves behind.
+
+   Keep --mark-size and the width/height attributes on the <img> in Layout.astro
+   in step: the attributes supply the aspect-ratio box the browser reserves
+   before the SVG loads, so a size change has to happen in both places.
+   --------------------------------------------------------------------------- */
+.nav-mark {
+	--mark-size: 1.5rem;             /* 24px; mirrored by the <img> width/height */
+	align-self: center;
+	display: inline-flex;
+	border-radius: var(--radius);
+	transition: opacity var(--dur) var(--ease);
+	transform: translateY(var(--nav-lift));
+}
+.nav-mark img {
+	display: block;
+	inline-size: var(--mark-size);
+	block-size: var(--mark-size);
+}
+/* the links wake by color; an image has none to change, so it lifts instead */
+.nav-mark:hover,
+.nav-mark:focus-visible {
+	opacity: 0.72;
+}
+
+
+/* -----------------------------------------------------------------------------
    3a. THEME TOGGLE — quiet nav furniture (light/dark switch)
    A native <button class="theme-toggle"> that lives at the RIGHT end of the nav
    (margin-inline-start:auto pushes it past the links). It reads as the same
@@ -321,6 +377,7 @@ nav a[aria-current="page"] {
 	--tt-size: 2.25rem;              /* 36px hit area — tunable */
 	margin-inline-start: auto;       /* sit at the far right, after the links */
 	align-self: center;              /* center on the baseline-aligned nav row */
+	transform: translateY(var(--nav-lift)); /* same optical lift as .nav-mark */
 
 	display: inline-flex;
 	align-items: center;

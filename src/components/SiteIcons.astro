@@ -1,0 +1,20 @@
+---
+// The site's icon <link>s, shared by every <head>. Two heads exist and must
+// stay in step: Layout.astro (all content pages) and pages/index.astro (the
+// maze, which deliberately does NOT use Layout, so it cannot inherit them).
+// Keeping the set here means a future addition (a manifest, a mask-icon, a
+// second apple-touch size) lands on both by construction rather than by memory.
+//
+// Order matters. Browsers that support SVG favicons match the first link and
+// use that one file at EVERY size, so favicon.svg is the one that has to stay
+// legible in a 16px tab; the .ico is only ever fetched by browsers that do not
+// (Safari, mainly), which is why it carries just 16 and 32.
+//
+// No `?url` import here, unlike CjkFonts/KatexStyles: these are stable paths in
+// public/ that outside agents (a browser's default /favicon.ico probe, the iOS
+// home screen) look up by name, so they must not be content-hashed.
+---
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />

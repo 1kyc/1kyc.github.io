@@ -11,6 +11,18 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "SendUserFile",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/mirror-user-files.py\"",
+            "statusMessage": "Mirroring delivered files into the workspace"
+          }
+        ]
+      }
     ]
   }
 }
